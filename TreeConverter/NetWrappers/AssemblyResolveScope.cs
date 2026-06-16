@@ -160,7 +160,9 @@ namespace PascalABCCompiler.NetHelper
             {
                 string assmPath = GetStandardAssemblyPath(fileName);
                 if (assmPath != null)
+                {
                     path = assmPath;
+                }
             }
             if (File.Exists(path))
             {
