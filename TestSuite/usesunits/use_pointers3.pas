@@ -1,1 +1,0 @@
-uses u_pointers3; begin end.

@@ -1,1 +1,0 @@
-uses u_pointers7; begin end.

@@ -1,1 +1,0 @@
-uses u_binfile1; begin end.

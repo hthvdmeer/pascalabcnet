@@ -15,17 +15,18 @@
           "Localization": "1.0.0",
           "PABCCoreUtils": "1.0.0",
           "ParserTools": "1.0.0",
-          "SyntaxTree": "1.0.0"
+          "SyntaxTree": "1.0.0",
+          "System.CodeDom": "8.0.0"
         },
         "runtime": {
           "pabcnetc.dll": {}
         }
       },
-      "System.CodeDom/9.0.17": {
+      "System.CodeDom/8.0.0": {
         "runtime": {
-          "lib/net9.0/System.CodeDom.dll": {
-            "assemblyVersion": "9.0.0.0",
-            "fileVersion": "9.0.1726.26416"
+          "lib/net8.0/System.CodeDom.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.23.53103"
           }
         }
       },
@@ -42,7 +43,7 @@
           "StringConstants": "1.0.0",
           "SyntaxTree": "1.0.0",
           "SyntaxVisitors": "1.0.0",
-          "System.CodeDom": "9.0.17",
+          "System.CodeDom": "8.0.0",
           "TreeConverter": "1.0.0"
         },
         "runtime": {
@@ -189,7 +190,8 @@
           "PABCCoreUtils": "1.0.0",
           "SemanticTree": "1.0.0",
           "StringConstants": "1.0.0",
-          "SyntaxTree": "1.0.0"
+          "SyntaxTree": "1.0.0",
+          "System.CodeDom": "8.0.0"
         },
         "runtime": {
           "TreeConverter.dll": {
@@ -206,12 +208,12 @@
       "serviceable": false,
       "sha512": ""
     },
-    "System.CodeDom/9.0.17": {
+    "System.CodeDom/8.0.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-WVTjV5fy0sHADE6+knn0D6oAwu5zFfGhJYZptnW7HNhN2HUU7bl/zg21DzxbH9vUDucDmy51PbPqaBD4sZKDqg==",
-      "path": "system.codedom/9.0.17",
-      "hashPath": "system.codedom.9.0.17.nupkg.sha512"
+      "sha512": "sha512-WTlRjL6KWIMr/pAaq3rYqh0TJlzpouaQ/W1eelssHgtlwHAH25jXTkUphTYx9HaIIf7XA6qs/0+YhtLEQRkJ+Q==",
+      "path": "system.codedom/8.0.0",
+      "hashPath": "system.codedom.8.0.0.nupkg.sha512"
     },
     "Compiler/1.0.0": {
       "type": "project",

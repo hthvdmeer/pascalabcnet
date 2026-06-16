@@ -1,1 +1,0 @@
-uses u_enum1; begin end.

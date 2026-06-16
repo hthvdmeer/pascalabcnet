@@ -1,1 +1,0 @@
-uses u_const1; begin end.

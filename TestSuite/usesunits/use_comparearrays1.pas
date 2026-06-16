@@ -1,1 +1,0 @@
-uses u_comparearrays1; begin end.

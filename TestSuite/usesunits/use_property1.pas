@@ -1,1 +1,0 @@
-uses u_property1; begin end.

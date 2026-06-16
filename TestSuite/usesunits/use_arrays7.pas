@@ -1,1 +1,0 @@
-uses u_arrays7; begin end.

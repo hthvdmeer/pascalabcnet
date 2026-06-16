@@ -1,1 +1,0 @@
-uses u_dynarrays1; begin end.

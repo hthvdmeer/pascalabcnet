@@ -1,1 +1,0 @@
-uses u_extensionmethods2; begin end.

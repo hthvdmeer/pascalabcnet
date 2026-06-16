@@ -1,1 +1,0 @@
-uses u_for1; begin end.

@@ -1,1 +1,0 @@
-uses u_while1; begin end.

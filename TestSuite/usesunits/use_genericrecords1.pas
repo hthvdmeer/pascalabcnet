@@ -1,1 +1,0 @@
-uses u_genericrecords1; begin end.

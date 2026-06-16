@@ -1,4 +1,0 @@
-﻿uses Reflection;
-
-begin
-end.

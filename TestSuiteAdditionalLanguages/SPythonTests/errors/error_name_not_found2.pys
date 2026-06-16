@@ -1,4 +1,0 @@
-﻿#!В модуле 'PABCSystem' не объявлено имя 'random'
-from PABCSystem import random as rnd
-
-print(rnd(0))

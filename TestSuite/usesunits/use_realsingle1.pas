@@ -1,1 +1,0 @@
-uses u_realsingle1; begin end.

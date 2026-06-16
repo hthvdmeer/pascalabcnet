@@ -7,6 +7,7 @@
 {$reference Localization.dll}
 {$reference System.Windows.Forms.dll}
 {$reference LanguageIntegrator.dll}
+{$reference System.Diagnostics.Process.dll}
 
 uses PascalABCCompiler, System.IO, System.Diagnostics;
 
@@ -307,7 +308,8 @@ begin
   for var i := 0 to files.Length - 1 do
   begin
     //Println(files[i]);
-    var psi := new System.Diagnostics.ProcessStartInfo(files[i]);
+    // On .NET Core hosts, managed EXEs need the dotnet runtime host to run
+    var psi := new System.Diagnostics.ProcessStartInfo('dotnet', '"' + files[i] + '"');
     psi.CreateNoWindow := true;
     psi.UseShellExecute := false;
     

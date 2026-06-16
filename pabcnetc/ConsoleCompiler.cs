@@ -319,7 +319,7 @@ namespace PascalABCCompiler
                     }
                 }
                 GlobalErrorsList.AddRange(Compiler.ErrorsList);
-                if (PauseIfError)
+                if (PauseIfError && !NoConsole)
                     Console.ReadKey();
             }
             else
@@ -366,7 +366,10 @@ namespace PascalABCCompiler
         {
             Console.ForegroundColor = ConsoleColor.Gray;
             Console.WriteLine(StringResourcesGet("RESTARTING_COMPILER"));
+
             //StringResourcesLanguage.CurrentLanguageName = "–усский";
+            // StringResourcesLanguage.CurrentLanguageName = "Russian";
+
             DateTime ldt = DateTime.Now;
             Compiler = new PascalABCCompiler.Compiler(null,ChangeCompilerState);
             //GC.Collect();
@@ -410,6 +413,8 @@ namespace PascalABCCompiler
 
         public static int Main(string[] initialArgs)
         {
+            // Windows code-page encodings (e.g. cp1251) are not registered by default on .NET Core.
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
             var args = initialArgs.ToList();
             if (args.Remove("/noconsole"))
             {
@@ -442,6 +447,7 @@ namespace PascalABCCompiler
             Console.Title = StringResourcesGet("STARTING");
 
             // загрузка всех парсеров и других составляющих языков  EVA
+            // Loading all parsers and other components of the EVA languages
             Languages.Integration.LanguageIntegrator.LoadAllLanguages();
             
             Reset();
@@ -485,7 +491,8 @@ namespace PascalABCCompiler
             ShowConnectedConversions();
             if (args.Count >= 1)
             {
-                return CompileAssembly(FileName, outputType, true);
+                int result = CompileAssembly(FileName, outputType, true);
+                return result;
             }
             ExecuteCommand("?");
             while (true)

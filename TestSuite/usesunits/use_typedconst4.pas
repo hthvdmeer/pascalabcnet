@@ -1,1 +1,0 @@
-uses u_typedconst4; begin end.

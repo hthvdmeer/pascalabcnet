@@ -1,1 +1,0 @@
-uses u_fileofset1; begin end.

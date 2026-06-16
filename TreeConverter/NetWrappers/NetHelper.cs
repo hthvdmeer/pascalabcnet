@@ -418,6 +418,18 @@ namespace PascalABCCompiler.NetHelper
             {
                 a = System.Reflection.Assembly.LoadFrom(name);
             }
+
+            // On .NET 5+, framework DLLs (mscorlib, System, etc.) are pure type-forwarding facades
+            // with 0 exported types. Substitute the real runtime assembly so namespaces are populated.
+            if (System.Environment.Version.Major >= 5)
+            {
+                int typeCount = 0;
+                try { typeCount = a.GetTypes().Length; }
+                catch (ReflectionTypeLoadException rtle) { foreach (var t in rtle.Types) if (t != null) typeCount++; }
+                if (typeCount == 0)
+                    a = typeof(object).Assembly; // System.Private.CoreLib — contains all fundamental types
+            }
+
             ass_name_cache[name] = a;
             assm_full_paths[a] = name;
             file_dates[a] = System.IO.File.GetLastWriteTime(name);

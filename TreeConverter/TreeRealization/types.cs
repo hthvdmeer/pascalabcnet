@@ -3474,22 +3474,32 @@ namespace PascalABCCompiler.TreeRealization
             ctn.mark_if_array();
             if (st.IsEnum)
             {
-                internal_interface ii = SystemLibrary.SystemLibrary.integer_type.get_internal_interface(internal_interface_kind.ordinal_interface);
+                var intType = SystemLibrary.SystemLibrary.integer_type;
+                var ii = intType?.get_internal_interface(internal_interface_kind.ordinal_interface);
                 ordinal_type_interface oti_old = (ordinal_type_interface)ii;
-                enum_const_node lower_value = new enum_const_node(0, ctn, ctn.loc);
-                enum_const_node upper_value = new enum_const_node(st.GetFields().Length-2, ctn, ctn.loc);
-                ordinal_type_interface oti_new = new ordinal_type_interface(oti_old.inc_method, oti_old.dec_method,
-                    oti_old.inc_value_method, oti_old.dec_value_method,
-                    oti_old.lower_eq_method, oti_old.greater_eq_method, 
-                    oti_old.lower_method, oti_old.greater_method,
-                    lower_value, upper_value, oti_old.value_to_int, oti_old.ordinal_type_to_int);
+                var boolType = SystemLibrary.SystemLibrary.bool_type;
 
-                ctn.add_internal_interface(oti_new);
-                SystemLibrary.SystemLibrary.make_binary_operator(StringConstants.gr_name, ctn, SemanticTree.basic_function_type.enumgr, SystemLibrary.SystemLibrary.bool_type);
-                SystemLibrary.SystemLibrary.make_binary_operator(StringConstants.greq_name, ctn, SemanticTree.basic_function_type.enumgreq, SystemLibrary.SystemLibrary.bool_type);
-                SystemLibrary.SystemLibrary.make_binary_operator(StringConstants.sm_name, ctn, SemanticTree.basic_function_type.enumsm, SystemLibrary.SystemLibrary.bool_type);
-                SystemLibrary.SystemLibrary.make_binary_operator(StringConstants.smeq_name, ctn, SemanticTree.basic_function_type.enumsmeq, SystemLibrary.SystemLibrary.bool_type);
-                InitEnumOperations(ctn);
+                // Skip enum setup when called during early type initialization (e.g. from .NET 10
+                // reflection over decimal constructors) before integer_type's ordinal interface and
+                // bool_type are ready.  User-defined enums are always processed later via the
+                // two-argument get_type_node overload, by which time both are available.
+                if (oti_old != null && boolType != null)
+                {
+                    enum_const_node lower_value = new enum_const_node(0, ctn, ctn.loc);
+                    enum_const_node upper_value = new enum_const_node(st.GetFields().Length-2, ctn, ctn.loc);
+                    ordinal_type_interface oti_new = new ordinal_type_interface(oti_old.inc_method, oti_old.dec_method,
+                        oti_old.inc_value_method, oti_old.dec_value_method,
+                        oti_old.lower_eq_method, oti_old.greater_eq_method,
+                        oti_old.lower_method, oti_old.greater_method,
+                        lower_value, upper_value, oti_old.value_to_int, oti_old.ordinal_type_to_int);
+
+                    ctn.add_internal_interface(oti_new);
+                    SystemLibrary.SystemLibrary.make_binary_operator(StringConstants.gr_name, ctn, SemanticTree.basic_function_type.enumgr, boolType);
+                    SystemLibrary.SystemLibrary.make_binary_operator(StringConstants.greq_name, ctn, SemanticTree.basic_function_type.enumgreq, boolType);
+                    SystemLibrary.SystemLibrary.make_binary_operator(StringConstants.sm_name, ctn, SemanticTree.basic_function_type.enumsm, boolType);
+                    SystemLibrary.SystemLibrary.make_binary_operator(StringConstants.smeq_name, ctn, SemanticTree.basic_function_type.enumsmeq, boolType);
+                    InitEnumOperations(ctn);
+                }
             }
             //ctn.init_scope();
             //TODO: Тут надо подумать. Может как-то сделать по другому?

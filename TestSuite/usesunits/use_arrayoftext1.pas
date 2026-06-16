@@ -1,1 +1,0 @@
-uses u_arrayoftext1; begin end.

@@ -1,1 +1,0 @@
-uses u_generics1; begin end.

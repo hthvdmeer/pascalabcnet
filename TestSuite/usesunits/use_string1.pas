@@ -1,1 +1,0 @@
-uses u_string1; begin end.

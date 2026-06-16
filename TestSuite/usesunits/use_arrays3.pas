@@ -1,1 +1,0 @@
-uses u_arrays3; begin end.

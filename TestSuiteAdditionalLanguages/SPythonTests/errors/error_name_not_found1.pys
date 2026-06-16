@@ -1,5 +1,0 @@
-﻿#!Неизвестное имя 'random'
-from PABCSystem import *
-
-print(Random(0))
-print(random(0))

@@ -1,1 +1,0 @@
-uses u_incdecdiap1; begin end.

@@ -1,5 +1,0 @@
-﻿uses
-  System;
-
-begin
-end.

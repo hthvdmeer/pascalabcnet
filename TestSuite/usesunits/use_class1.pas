@@ -1,1 +1,0 @@
-uses u_class1; begin end.

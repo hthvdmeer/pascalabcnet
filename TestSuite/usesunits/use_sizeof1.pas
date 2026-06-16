@@ -1,1 +1,0 @@
-uses u_sizeof1; begin end.

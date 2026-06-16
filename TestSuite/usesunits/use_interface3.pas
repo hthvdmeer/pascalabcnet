@@ -1,1 +1,0 @@
-uses u_interface3; begin end.

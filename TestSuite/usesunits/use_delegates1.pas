@@ -1,1 +1,0 @@
-uses u_delegates1; begin end.

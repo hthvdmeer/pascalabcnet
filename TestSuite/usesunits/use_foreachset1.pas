@@ -1,1 +1,0 @@
-uses u_foreachset1; begin end.

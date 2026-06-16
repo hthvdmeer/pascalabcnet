@@ -1,1 +1,0 @@
-uses u_arithm7; begin end.

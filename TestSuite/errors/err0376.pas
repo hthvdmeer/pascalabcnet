@@ -1,3 +1,0 @@
-﻿begin
-  integer(True)
-end.    

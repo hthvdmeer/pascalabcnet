@@ -1,1 +1,0 @@
-uses u_foreach1; begin end.

@@ -1,1 +1,0 @@
-uses u_ord1; begin end.

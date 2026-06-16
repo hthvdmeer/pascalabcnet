@@ -1,1 +1,0 @@
-﻿uses u_lib1; begin end.

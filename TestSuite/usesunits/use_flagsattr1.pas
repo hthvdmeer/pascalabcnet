@@ -1,1 +1,0 @@
-uses u_flagsattr1; begin end.

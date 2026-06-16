@@ -198,9 +198,7 @@ namespace PascalABCCompiler
 
         object ReadObject()
         {
-            standardInput = Console.OpenStandardInput();
-            object o=(new BinaryFormatter()).Deserialize(standardInput);
-            return o;
+            throw new NotSupportedException("commandmode IPC via BinaryFormatter is not supported on .NET 10+");
         }
 
         bool executeCommand(string line)

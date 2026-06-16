@@ -1670,7 +1670,6 @@ namespace PascalABCCompiler
 
         private void GenerateILCode(program_node programNode, NETGenerator.CompilerOptions compilerOptions, List<string> resourceFiles)
         {
-
             if (CompilerOptions.OutputFileType != CompilerOptions.OutputType.SemanticTree)
 #if DEBUG
                 if (InternalDebug.CodeGeneration)
@@ -2086,6 +2085,13 @@ namespace PascalABCCompiler
 
         public static string GetReferenceFileName(string FileName, string curr_path = null)
         {
+            // Current directory and curr_path take precedence over cached standard-library paths,
+            // allowing .NET 10-compatible DLLs placed in bin/ to override GAC .NET Framework versions.
+            if (curr_path != null && System.IO.File.Exists(Path.Combine(curr_path, FileName)))
+                return Path.Combine(curr_path, FileName);
+            string localPath = Path.Combine(Environment.CurrentDirectory, FileName);
+            if (System.IO.File.Exists(localPath))
+                return localPath;
             // Вначале - кешированные стандартные dll
             if (standart_assembly_dict.ContainsKey(FileName))
                 return standart_assembly_dict[FileName];
@@ -2104,6 +2110,12 @@ namespace PascalABCCompiler
         private string GetReferenceFileName(string FileName, SyntaxTree.SourceContext sc, string curr_path, bool overwrite)
         {
             FileName = FileName.Trim();
+            // Current directory / curr_path override cached paths for .NET 10 compatibility.
+            if (curr_path != null && System.IO.File.Exists(Path.Combine(curr_path, FileName)))
+                return Path.Combine(curr_path, FileName);
+            string localPath = Path.Combine(Environment.CurrentDirectory, FileName);
+            if (System.IO.File.Exists(localPath))
+                return localPath;
             if (standart_assembly_dict.ContainsKey(FileName))
                 return standart_assembly_dict[FileName];
 

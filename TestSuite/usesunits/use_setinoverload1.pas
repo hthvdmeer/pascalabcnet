@@ -1,1 +1,0 @@
-uses u_setinoverload1; begin end.

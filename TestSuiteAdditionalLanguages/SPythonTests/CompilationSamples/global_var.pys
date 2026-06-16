@@ -1,8 +1,0 @@
-﻿if True:
-    a = '123'
-
-a = 1
-
-
-def f():
-    print(a)

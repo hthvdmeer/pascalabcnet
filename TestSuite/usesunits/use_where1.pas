@@ -1,1 +1,0 @@
-﻿uses u_where1; begin end.

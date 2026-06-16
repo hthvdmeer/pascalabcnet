@@ -1,1 +1,0 @@
-uses u_fileof3; begin end.

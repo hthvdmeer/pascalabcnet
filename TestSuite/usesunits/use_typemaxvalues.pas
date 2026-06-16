@@ -1,1 +1,0 @@
-uses u_typemaxvalues; begin end.

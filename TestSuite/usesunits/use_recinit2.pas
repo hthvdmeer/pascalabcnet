@@ -1,1 +1,0 @@
-uses u_recinit2; begin end.

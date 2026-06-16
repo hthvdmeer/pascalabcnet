@@ -1,1 +1,0 @@
-uses u_case2; begin end.

@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
-using System.Runtime.Serialization.Formatters.Binary;
 using PascalABCCompiler.CoreUtils;
 
 namespace PascalABCCompiler
@@ -181,13 +180,9 @@ namespace PascalABCCompiler
             command = Convert.ToInt32(line.Substring(0, 3));
         }
 
-        Stream standardInput;
-
         object ReadObject()
         {
-            standardInput = Console.OpenStandardInput();
-            object o=(new BinaryFormatter()).Deserialize(standardInput);
-            return o;
+            throw new NotSupportedException("commandmode IPC via BinaryFormatter is not supported on .NET 10+");
         }
 
         bool executeCommand(string line)

@@ -9,6 +9,9 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
+using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Security;
@@ -259,8 +262,10 @@ namespace PascalABCCompiler.NETGenerator
 
         protected void MarkSequencePoint(ILGenerator ilg, int bl, int bc, int el, int ec)
         {
-            //if (make_next_spoint)
-            ilg.MarkSequencePoint(doc, bl, bc, el, ec + 1);
+            // .NET 10 validates columns as [0, 0xFFFE]; clamp to avoid ArgumentOutOfRangeException.
+            int startCol = Math.Max(0, Math.Min(bc, 0xFFFE));
+            int endCol   = Math.Max(0, Math.Min(ec + 1, 0xFFFE));
+            ilg.MarkSequencePoint(doc, bl, startCol, el, endCol);
             make_next_spoint = true;
         }
 
@@ -682,7 +687,7 @@ namespace PascalABCCompiler.NETGenerator
             string fname = TargetFileName;
             var onlyfname = System.IO.Path.GetFileName(fname);
             comp_opt = options;
-            ad = Thread.GetDomain(); //получаем домен приложения
+            ad = AppDomain.CurrentDomain;
             an = new AssemblyName(); //создаем имя сборки
             an.Version = new Version("1.0.0.0");
             string dir = Directory.GetCurrentDirectory();
@@ -693,7 +698,6 @@ namespace PascalABCCompiler.NETGenerator
             if (pos != -1) //если имя файла указано с путем, то выделяем
             {
                 dir = source_name.Substring(0, pos + 1);
-                an.CodeBase = String.Concat("file:///", source_name.Substring(0, pos));
                 source_name = source_name.Substring(pos + 1);
             }
             string name = source_name.Substring(0, source_name.LastIndexOf('.'));
@@ -737,39 +741,10 @@ namespace PascalABCCompiler.NETGenerator
                     Directory.CreateDirectory(dir);
             }
 
-            ab = ad.DefineDynamicAssembly(an, AssemblyBuilderAccess.Save, dir);//определяем сборку
-            
-            //int nn = ad.GetAssemblies().Length;
-            if (options.NeedDefineVersionInfo)
-            {
-                ab.DefineVersionInfoResource(options.Product, options.ProductVersion, options.Company,
-                    options.Copyright, options.TradeMark);
-                has_unmanaged_resources = true;
-            }
-            if (options.MainResourceFileName != null)
-            {
-                try
-                {
-                    ab.DefineUnmanagedResource(options.MainResourceFileName);
-                    has_unmanaged_resources = true;
-                }
-                catch
-                {
-                    throw new TreeConverter.SourceFileError(options.MainResourceFileName);
-                }
-            }
-            else if (options.MainResourceData != null)
-            {
-                try
-                {
-                    ab.DefineUnmanagedResource(options.MainResourceData);
-                    has_unmanaged_resources = true;
-                }
-                catch
-                {
-                    throw new TreeConverter.SourceFileError("");
-                }
-            }
+            ab = new PersistedAssemblyBuilder(an, typeof(object).Assembly);
+
+            // DefineVersionInfoResource and DefineUnmanagedResource are not supported by
+            // PersistedAssemblyBuilder — Win32 resource embedding requires post-build PE patching.
             save_debug_info = comp_opt.dbg_attrs == DebugAttributes.Debug || comp_opt.dbg_attrs == DebugAttributes.ForDebugging;
             add_special_debug_variables = comp_opt.dbg_attrs == DebugAttributes.ForDebugging;
 
@@ -778,9 +753,9 @@ namespace PascalABCCompiler.NETGenerator
                 ab.SetCustomAttribute(TypeFactory.DebuggableAttributeCtor, new byte[] { 0x01, 0x00, 0x01, 0x01, 0x00, 0x00 });
 
             if (!IsDotnet5() && !IsDotnetNative() && (comp_opt.target == TargetType.Exe || comp_opt.target == TargetType.WinExe))
-                mb = ab.DefineDynamicModule(name + ".exe", an.Name + ".exe", save_debug_info); //определяем модуль (save_debug_info - флаг включать отладочную информацию)
+                mb = ab.DefineDynamicModule(name + ".exe");
             else
-                mb = ab.DefineDynamicModule(name + ".dll", an.Name + ".dll", save_debug_info);
+                mb = ab.DefineDynamicModule(name + ".dll");
 
             cur_unit = Path.GetFileNameWithoutExtension(SourceFileName);
             string entry_cur_unit = cur_unit;
@@ -1131,15 +1106,7 @@ namespace PascalABCCompiler.NETGenerator
             CloseTypes();//закрываем типы
             // SSM 07.02.20  ?
             entry_type?.CreateType();
-            switch (comp_opt.target)
-            {
-                case TargetType.Exe: ab.SetEntryPoint(entry_meth, PEFileKinds.ConsoleApplication); break;
-                case TargetType.WinExe:
-                    if (!comp_opt.ForRunningWithEnvironment)
-                        ab.SetEntryPoint(entry_meth, PEFileKinds.WindowApplication);
-                    else
-                        ab.SetEntryPoint(entry_meth, PEFileKinds.ConsoleApplication); break;
-            }
+            // Entry point is passed to ManagedPEBuilder at save time (SetEntryPoint is not on AssemblyBuilder in .NET 10).
 
             /**/
             try
@@ -1222,13 +1189,7 @@ namespace PascalABCCompiler.NETGenerator
                 entry_meth.SetCustomAttribute(TypeFactory.STAThreadAttributeCtor, new byte[] { 0x01, 0x00, 0x00, 0x00 });
             }
             List<FileStream> ResStreams = new List<FileStream>();
-            if (ResourceFiles != null)
-                foreach (string resname in ResourceFiles)
-                {
-                    FileStream stream = File.OpenRead(resname);
-                    ResStreams.Add(stream);
-                    mb.DefineManifestResource(Path.GetFileName(resname), stream, ResourceAttributes.Public);
-                }
+            // DefineManifestResource not supported by PersistedAssemblyBuilder on .NET Core.
             ab.SetCustomAttribute(TypeFactory.CompilationRelaxationsAttributeCtor,
                                   new byte[] { 0x01, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00 });
 
@@ -1248,16 +1209,16 @@ namespace PascalABCCompiler.NETGenerator
             {
                 try
                 {
+                    var pab = (PersistedAssemblyBuilder)ab;
                     if (comp_opt.target == TargetType.Exe || comp_opt.target == TargetType.WinExe)
                     {
                         if (IsDotnet5() || IsDotnetNative())
-                            ab.Save(an.Name + ".dll");
-                        else if (comp_opt.platformtarget == NETGenerator.CompilerOptions.PlatformTarget.x86)
-                            ab.Save(an.Name + ".exe", PortableExecutableKinds.Required32Bit, ImageFileMachine.I386);
-                        //else if (comp_opt.platformtarget == NETGenerator.CompilerOptions.PlatformTarget.x64)
-                        //    ab.Save(an.Name + ".exe", PortableExecutableKinds.PE32Plus, ImageFileMachine.IA64);
-                        else ab.Save(an.Name + ".exe");
-                        //сохраняем сборку
+                            pab.Save(Path.Combine(dir, an.Name + ".dll"));
+                        else
+                        {
+                            bool isGui = comp_opt.target == TargetType.WinExe && !comp_opt.ForRunningWithEnvironment;
+                            SaveManagedExe(pab, entry_meth, Path.Combine(dir, an.Name + ".exe"), isGui);
+                        }
                         if (IsDotnet5())
                             BuildDotnet5(orig_dir, dir, dotnet_publish_dir);
                         else if (IsDotnetNative())
@@ -1265,11 +1226,7 @@ namespace PascalABCCompiler.NETGenerator
                     }
                     else
                     {
-                        if (comp_opt.platformtarget == NETGenerator.CompilerOptions.PlatformTarget.x86)
-                            ab.Save(an.Name + ".dll", PortableExecutableKinds.Required32Bit, ImageFileMachine.I386);
-                        //else if (comp_opt.platformtarget == NETGenerator.CompilerOptions.PlatformTarget.x64)
-                        //    ab.Save(an.Name + ".dll", PortableExecutableKinds.PE32Plus, ImageFileMachine.IA64);
-                        else ab.Save(an.Name + ".dll");
+                        pab.Save(Path.Combine(dir, an.Name + ".dll"));
                         if (IsDotnetNative())
                             BuildDotnetNative(p, orig_dir, dir, dotnet_publish_dir, SourceFileName);
                     }
@@ -1300,8 +1257,49 @@ namespace PascalABCCompiler.NETGenerator
         public void EmitAssemblyRedirects(AssemblyResolveScope resolveScope, string targetAssemblyPath)
         {
             if (IsDotnet5() || IsDotnetNative()) return;
+            if (System.Environment.Version.Major >= 5)
+            {
+                // Modern .NET host: emit runtimeconfig.json for executables so they can be launched with 'dotnet'.
+                if (comp_opt.target == TargetType.Exe || comp_opt.target == TargetType.WinExe)
+                    WriteRuntimeConfig(targetAssemblyPath, comp_opt.target == TargetType.WinExe);
+                return;
+            }
             var appConfigPath = targetAssemblyPath + ".config";
             AppConfigUtil.UpdateAppConfig(resolveScope.CalculateBindingRedirects(), appConfigPath);
+        }
+
+        private static void WriteRuntimeConfig(string exePath, bool isWinApp)
+        {
+            int major = System.Environment.Version.Major;
+            string frameworkName = isWinApp ? "Microsoft.WindowsDesktop.App" : "Microsoft.NETCore.App";
+            string json = "{\n" +
+                          "  \"runtimeOptions\": {\n" +
+                         $"    \"tfm\": \"net{major}.0\",\n" +
+                          "    \"framework\": {\n" +
+                         $"      \"name\": \"{frameworkName}\",\n" +
+                         $"      \"version\": \"{major}.0.0\"\n" +
+                          "    }\n" +
+                          "  }\n" +
+                          "}";
+            File.WriteAllText(Path.ChangeExtension(exePath, ".runtimeconfig.json"), json);
+        }
+
+        private static void SaveManagedExe(PersistedAssemblyBuilder pab, MethodInfo entryMethod, string outputPath, bool isWinApp)
+        {
+            var metadata = pab.GenerateMetadata(out BlobBuilder ilStream, out BlobBuilder mappedFieldData);
+            var entryHandle = (MethodDefinitionHandle)MetadataTokens.EntityHandle(entryMethod.GetMetadataToken());
+            var subsystem = isWinApp ? Subsystem.WindowsGui : Subsystem.WindowsCui;
+            var peHeader = new PEHeaderBuilder(imageCharacteristics: Characteristics.ExecutableImage, subsystem: subsystem);
+            var peBuilder = new ManagedPEBuilder(
+                header: peHeader,
+                metadataRootBuilder: new MetadataRootBuilder(metadata),
+                ilStream: ilStream,
+                mappedFieldData: mappedFieldData,
+                entryPoint: entryHandle);
+            var peBlob = new BlobBuilder();
+            peBuilder.Serialize(peBlob);
+            using var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write);
+            peBlob.WriteContentTo(fs);
         }
 
         private void AddSpecialInitDebugCode()
@@ -2227,13 +2225,11 @@ namespace PascalABCCompiler.NETGenerator
                     var constr = (attrs[i].AttributeConstructor is ICompiledConstructorNode) ? (attrs[i].AttributeConstructor as ICompiledConstructorNode).constructor_info : helper.GetConstructor(attrs[i].AttributeConstructor).cnstr;
                     
                     if (attrs[i].Arguments.Length > 0 && helper.GetTypeReference(attrs[i].AttributeType).tp.FullName == "System.Runtime.InteropServices.MarshalAsAttribute")
-                    try
                     {
-                        mb.SetMarshal(UnmanagedMarshal.DefineUnmanagedMarshal((UnmanagedType)attrs[i].Arguments[0].value));
-                    }
-                    catch(ArgumentException ex)
-                    {
-                        throw new PascalABCCompiler.Errors.CommonCompilerError(ex.Message.Replace(", переданный для DefineUnmanagedMarshal,",""), attrs[i].Location.file_name, attrs[i].Location.begin_line_num, attrs[i].Location.begin_column_num);
+                        var marshalAsCtor = typeof(System.Runtime.InteropServices.MarshalAsAttribute)
+                            .GetConstructor(new[] { typeof(System.Runtime.InteropServices.UnmanagedType) });
+                        returnValueAttrs.Add(new CustomAttributeBuilder(marshalAsCtor,
+                            new object[] { (System.Runtime.InteropServices.UnmanagedType)attrs[i].Arguments[0].value }));
                     }
                     else
                     {
@@ -6082,7 +6078,7 @@ namespace PascalABCCompiler.NETGenerator
                 if (gen_left_brackets)
                     MarkSequencePoint(value.LeftLogicalBracketLocation);
                 else
-                    il.MarkSequencePoint(doc, 0xFeeFee, 0xFeeFee, 0xFeeFee, 0xFeeFee);
+                    il.MarkSequencePoint(doc, 0xFeeFee, 0, 0xFeeFee, 0);
                 //il.MarkSequencePoint(doc,0xFFFFFF,0xFFFFFF,0xFFFFFF,0xFFFFFF);
                 il.Emit(OpCodes.Nop);
             }
@@ -6130,7 +6126,7 @@ namespace PascalABCCompiler.NETGenerator
                 if (gen_left_brackets || value.LeftLogicalBracketLocation == null)
                     MarkSequencePoint(value.LeftLogicalBracketLocation);
                 else
-                    il.MarkSequencePoint(doc, 0xFeeFee, 0xFeeFee, 0xFeeFee, 0xFeeFee);
+                    il.MarkSequencePoint(doc, 0xFeeFee, 0, 0xFeeFee, 0);
                 il.Emit(OpCodes.Nop);
             }
             
@@ -6449,7 +6445,11 @@ namespace PascalABCCompiler.NETGenerator
             ConvertStatement(value.then_body);
             il.Emit(OpCodes.Br, EndLabel);
             if (value.else_body == null && next_location != null)
-                il.MarkSequencePoint(doc, next_location.begin_line_num, 1, next_location.begin_line_num, next_location.begin_column_num);
+            {
+                // startColumn=1 is fixed; portable PDB requires endColumn > startColumn when startLine==endLine.
+                int endCol = Math.Max(Math.Min(Math.Max(next_location.begin_column_num, 0), 0xFFFE), 2);
+                il.MarkSequencePoint(doc, next_location.begin_line_num, 1, next_location.begin_line_num, endCol);
+            }
             il.MarkLabel(FalseLabel);
             if (value.else_body != null)
                 ConvertStatement(value.else_body);
@@ -11741,7 +11741,7 @@ namespace PascalABCCompiler.NETGenerator
             ConvertStatement(value.Body);
             LeaveSafeBlock(safe_block);
             //MarkSequencePoint(value.Location);
-            il.MarkSequencePoint(doc, 0xFeeFee, 0xFeeFee, 0xFeeFee, 0xFeeFee);
+            il.MarkSequencePoint(doc, 0xFeeFee, 0, 0xFeeFee, 0);
             il.MarkLabel(l2);
             if (lb.LocalType.IsValueType)
                 il.Emit(OpCodes.Ldloca, lb);

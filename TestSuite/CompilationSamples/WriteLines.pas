@@ -1,3 +1,0 @@
-﻿begin
-  Arr('').WriteLines('');
-end.

@@ -1,35 +1,25 @@
-﻿name: Build & Run all tests on Ubuntu (release)
+name: Build (pabcnetc, .NET 10, Linux)
 
 on:
+  push:
+  pull_request:
   workflow_dispatch:
 
-  release:
-    types:
-      - created
-
-defaults:
-  run:
-    shell: sh
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
-
-    name: Prepare and build on Ubuntu VM
+    name: Build command-line compiler on Linux
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
-    - name: Build project in Release-mode, compile Pas-units, run tests
-      run: ./_RebuildReleaseAndRunTests.sh
-      timeout-minutes: 40
-      env:
-        PABCNET_BUILD_MODE: Release
-        PABCNET_RUN_TESTS:  false
-        PABCNET_INC_BUILD:  false
-        PABCNET_VERBOSE:    false
+    - name: Setup .NET 10
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
 
-    #- name: Publish artifacts (5/5)...
-    #  uses: actions/upload-artifact@v2
-    #  with:
-    #    name: All_distros
-    #    path: Release
+    - name: Build pabcnetc.sln
+      run: dotnet build pabcnetc.sln -c Release -v q

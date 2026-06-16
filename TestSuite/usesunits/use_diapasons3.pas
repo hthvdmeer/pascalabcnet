@@ -1,1 +1,0 @@
-uses u_diapasons3; begin end.

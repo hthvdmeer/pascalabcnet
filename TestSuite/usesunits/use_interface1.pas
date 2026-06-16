@@ -1,1 +1,0 @@
-uses u_interface1; begin end.

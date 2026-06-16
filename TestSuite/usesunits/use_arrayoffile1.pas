@@ -1,1 +1,0 @@
-uses u_arrayoffile1; begin end.

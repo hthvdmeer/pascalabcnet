@@ -1,1 +1,0 @@
-uses u_stringelem2; begin end.

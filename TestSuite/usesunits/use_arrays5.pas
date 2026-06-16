@@ -1,1 +1,0 @@
-uses u_arrays5; begin end.

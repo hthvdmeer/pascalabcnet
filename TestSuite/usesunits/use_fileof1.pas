@@ -1,1 +1,0 @@
-uses u_fileof1; begin end.

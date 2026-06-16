@@ -1,1 +1,0 @@
-uses u_arithm5; begin end.
