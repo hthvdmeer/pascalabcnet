@@ -1,4 +1,5 @@
-﻿uses implement1u;
+﻿//net40only
+uses implement1u;
 
 type TClass = class(System._AppDomain)
 

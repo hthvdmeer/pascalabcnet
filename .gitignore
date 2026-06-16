@@ -152,3 +152,7 @@
 /AddIns/ICSharpCode.SharpDevelop.addin
 
 
+*.dll
+out.txt
+*.dat
+*.il
