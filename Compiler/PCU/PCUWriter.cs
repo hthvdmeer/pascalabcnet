@@ -31,14 +31,14 @@ namespace PascalABCCompiler.PCU
         public const int method_instance_as_compiled_function_node = -1;
     }
    
-    //класс, хранящий информацию об имени интерфейсной сущности и ее смещении в модуле
+    //class storing information about the name of an interface entity and its offset in the module
     public class NameRef {
-		public string name;//имя сущности
-        public TreeConverter.access_level access_level;//модификатор видимости
+		public string name;//entity name
+        public TreeConverter.access_level access_level;//visibility modifier
         public symbol_kind symbol_kind = symbol_kind.sk_none;
-		public int offset;//смещение в модуле
-        public byte special_scope=0;//говорит о том что этот символ добавляется не в пространсво имен модуля
-		public int index;//не сериализуется
+		public int offset;//offset in the module
+        public byte special_scope=0;//indicates that this symbol is added outside the module's namespace
+		public int index;//not serialized
         public semantic_node_type semantic_node_type;
         public bool always_restore;
         public bool is_static;
@@ -81,7 +81,7 @@ namespace PascalABCCompiler.PCU
         }
     }
 
-    //вид импортируемой сущности
+    //kind of imported entity
 	public enum ImportKind {
 		Common,
 		DotNet
@@ -110,13 +110,13 @@ namespace PascalABCCompiler.PCU
         Value=2
     }
 
-    //класс, описывающий импортируемую сущность
+    //class describing an imported entity
 	public class ImportedEntity {
-		public ImportKind flag; //откуда импортируется сущность (сборка или PCU)
+		public ImportKind flag; //where the entity is imported from (assembly or PCU)
 		public int num_unit;//
-		public int offset;//для PCU - смещение в модуле, содержащем сущность, для .NET - MetadataToken сущности
-		
-        public int index;//индекс записи в списке импортируемых сущностей (не сериализуется)
+		public int offset;//for PCU - offset in the module containing the entity; for .NET - MetadataToken of the entity
+
+        public int index;//index of the record in the list of imported entities (not serialized)
 		
 		public int GetSize()
 		{
@@ -152,7 +152,7 @@ namespace PascalABCCompiler.PCU
 
    
     /// <summary>
-    /// Класс, описывающий заголовок PCU-файла
+    /// Class describing the header of a PCU file
     /// </summary>
 	public class PCUFile {
 
@@ -173,18 +173,18 @@ namespace PascalABCCompiler.PCU
 
         public string languageName;
         
-        public NameRef[] names; //список имен интерфейсной части модуля
-		public string[] incl_modules; //список подключаемых модулей
+        public NameRef[] names; //list of names in the interface section of the module
+		public string[] incl_modules; //list of included modules
 		public string[] used_namespaces;
-		public string[] ref_assemblies; //список подключаемых сборок
+		public string[] ref_assemblies; //list of referenced assemblies
         public DotNetNameRef[] dotnet_names;
 		//public AssemblyRef[] ref_assemblies;
-		public ImportedEntity[] imp_entitles; //список импортируемых сущностей
-        public List<TreeRealization.compiler_directive> compiler_directives; //список директив
+		public ImportedEntity[] imp_entitles; //list of imported entities
+        public List<TreeRealization.compiler_directive> compiler_directives; //list of directives
 
         //ssyy
         public NameRef[] implementation_names;
-        public int interface_uses_count; //Количество модулей из incl_modules, относящихся к секции interface
+        public int interface_uses_count; //Number of modules from incl_modules that belong to the interface section
         //public List<type_synonym> interface_type_synonyms;
         //public List<type_synonym> implementation_type_synonyms;
         public int interface_synonyms_offset;
@@ -196,34 +196,34 @@ namespace PascalABCCompiler.PCU
 	}
 	
     /// <summary>
-    /// Класс, создающий PCU-модуль
+    /// Class that creates a PCU module
     /// </summary>
 	public class PCUWriter {
 		private BinaryWriter bw;
         private MemoryStream ms;
-        private string name;//имя модуля
-        public string FileName;//имя файла модуля
-		private PCUFile pcu_file = new PCUFile(); //заголовок PCU
+        private string name;//module name
+        public string FileName;//module file name
+		private PCUFile pcu_file = new PCUFile(); //PCU header
 		private CompilationUnit unit;
-        private common_unit_node cun; //текущий сериализуемый unit
-		private Dictionary<definition_node,int> members = new Dictionary<definition_node,int>(); //таблица для хранения смещений сущностей модуля
-        private Dictionary<definition_node,NameRef> name_pool = new Dictionary<definition_node,NameRef>();//таблица для связывания имени сущности с ее описанием
+        private common_unit_node cun; //currently serialized unit
+		private Dictionary<definition_node,int> members = new Dictionary<definition_node,int>(); //table for storing offsets of module entities
+        private Dictionary<definition_node,NameRef> name_pool = new Dictionary<definition_node,NameRef>();//table for linking an entity name to its descriptor
         //ssyy
-        private Dictionary<definition_node, NameRef> impl_name_pool = new Dictionary<definition_node, NameRef>();//то же для implementation - части
+        private Dictionary<definition_node, NameRef> impl_name_pool = new Dictionary<definition_node, NameRef>();//same for the implementation section
         //\ssyy
-        private List<ImportedEntity> imp_entitles = new List<ImportedEntity>();//список импортируемых сущностей, заполняется в процессе
-		private List<string> ref_assemblies = new List<string>();//список подключаемых сборок, заполняется в процессе
-		private Dictionary<Assembly,int> assm_refs = new Dictionary<Assembly,int>();//таблица для привязывания сборки
-        private Dictionary<definition_node, int> func_codes = new Dictionary<definition_node, int>();//таблица, хранящая смещения тел методов в PCU
+        private List<ImportedEntity> imp_entitles = new List<ImportedEntity>();//list of imported entities, filled during processing
+		private List<string> ref_assemblies = new List<string>();//list of referenced assemblies, filled during processing
+		private Dictionary<Assembly,int> assm_refs = new Dictionary<Assembly,int>();//table for mapping assemblies
+        private Dictionary<definition_node, int> func_codes = new Dictionary<definition_node, int>();//table storing offsets of method bodies in PCU
         private Dictionary<common_unit_node, int> used_units = new Dictionary<common_unit_node, int>();
-		private Dictionary<definition_node,ImportedEntity> ext_members = new Dictionary<definition_node,ImportedEntity>();//таблица, привязывающая импорт. сущность с записью в списке имп. сущ-тей 
-		private common_namespace_node cur_cnn;//текущее пространство имен
-		private bool is_interface = true;//переводим ли интерфейсную часть
-        //глобальная таблица для хранения смещений сущностей
+		private Dictionary<definition_node,ImportedEntity> ext_members = new Dictionary<definition_node,ImportedEntity>();//table linking an imported entity to its record in the imported entities list
+		private common_namespace_node cur_cnn;//current namespace
+		private bool is_interface = true;//whether we are serializing the interface section
+        //global table for storing entity offsets
         private static Dictionary<definition_node,int> gl_members = new Dictionary<definition_node,int>();
         private Dictionary<int, common_namespace_function_node> function_references = new Dictionary<int, common_namespace_function_node>();
         private Dictionary<int, common_type_node> type_references = new Dictionary<int, common_type_node>();
-        //глобальная таблица, привязывающая импортируемую сущность, смещение которой пока неизвестно с PCUWriter
+        //global table linking an imported entity whose offset is not yet known to a PCUWriter
         private static Dictionary<definition_node, List<PCUWriter>> not_comp_members = new Dictionary<definition_node, List<PCUWriter>>();
        
         private static void add_not_comp_members(definition_node dn, PCUWriter pw)
@@ -240,9 +240,9 @@ namespace PascalABCCompiler.PCU
             }
         }
         
-        //локальная таблица, привязывающая импортируемую сущность с записью в таблице импортируемых сущностей
+        //local table linking an imported entity to its record in the imported entities table
         private Dictionary<definition_node, int> ext_offsets = new Dictionary<definition_node, int>();
-        private PCUReader pcu_reader = null; //требуется, если например требуется перекомпилировать модули PCU с циклическими связями
+        private PCUReader pcu_reader = null; //required, for example, when recompiling PCU modules with circular dependencies
         private Dictionary<definition_node, ClassInfo> class_info = new Dictionary<definition_node, ClassInfo>();
         private int InitializationMethodOffset = 0;
         private int FinalizationMethodOffset = 0;
@@ -272,11 +272,11 @@ namespace PascalABCCompiler.PCU
             not_comp_members.Clear();
             foreach (PCUWriter pw in AllWriters)
                 if (pw.ext_offsets.Count > 0)
-                    ;//ошибка?
+                    ;//error?
             AllWriters.Clear();
         }
 
-        //процедура сохранения модуля на диск
+        //procedure for saving the module to disk
 		public void SaveSemanticTree(CompilationUnit Unit, string TargetFileName, bool IncludeDebugInfo)
 		{
             pcu_file.IncludeDebugInfo = IncludeDebugInfo;
@@ -300,22 +300,22 @@ namespace PascalABCCompiler.PCU
 			//if (Unit.InterfaceUsedUnits.Count > 0) Console.WriteLine("{0} {1}",name,Unit.InterfaceUsedUnits[0].namespaces[0].namespace_name);
 			cur_cnn = cun.namespaces[0];
             
-            //(ssyy) формируем список нешаблонных классов
+            //(ssyy) build the list of non-template classes
             cur_cnn.MakeNonTemplateTypesList();
-            
-            GetUsedUnits();//заполняем список полключаемых модулей
+
+            GetUsedUnits();//fill the list of included modules
 
             pcu_file.languageName = Unit.Language.Name;
 
-            GetCountOfMembers();//заполняем список имен интерфейсных сущностей
-			WriteUnit();//пишем имя interface_namespace
+            GetCountOfMembers();//fill the list of interface entity names
+			WriteUnit();//write the interface_namespace name
 			cur_cnn = cun.namespaces[1];
 
-            //(ssyy) формируем список нешаблонных классов
+            //(ssyy) build the list of non-template classes
             cur_cnn.MakeNonTemplateTypesList();
 
-            GetCountOfImplementationMembers();//(ssyy) заполняем список имен сущностей реализации
-			WriteUnit();//пишем имя implementation_namespace
+            GetCountOfImplementationMembers();//(ssyy) fill the list of implementation entity names
+			WriteUnit();//write the implementation_namespace name
             SaveOffsetForAttribute(cun.namespaces[0]);
             bw.Write(0);//attributes;
 			cur_cnn = cun.namespaces[0];
@@ -323,10 +323,10 @@ namespace PascalABCCompiler.PCU
             //bw.Write((byte)0);
 
             //ssyy
-            VisitTemplateClasses();//сериализуем шаблонные классы
+            VisitTemplateClasses();//serialize template classes
             //\ssyy
 
-            VisitTypeDefinitions();//сериализуем описания типов интерфейсной части
+            VisitTypeDefinitions();//serialize type definitions of the interface section
 
             //ssyy
             pcu_file.interface_synonyms_offset = (int)bw.BaseStream.Position;
@@ -337,12 +337,12 @@ namespace PascalABCCompiler.PCU
             is_interface = false;
 
             //ssyy
-            VisitLabelDeclarations(cur_cnn.labels); //сериализуем метки
+            VisitLabelDeclarations(cur_cnn.labels); //serialize labels
             type_entity_index = 0;
-            VisitTemplateClasses();//сериализуем шаблонные классы
+            VisitTemplateClasses();//serialize template classes
             //\ssyy
-            
-            VisitTypeDefinitions();//сериализуем описания типов имплемент. части
+
+            VisitTypeDefinitions();//serialize type definitions of the implementation section
             //ssyy
             pcu_file.implementation_synonyms_offset = (int)bw.BaseStream.Position;
             VisitTypeSynonyms();
@@ -361,34 +361,34 @@ namespace PascalABCCompiler.PCU
             }
             cur_cnn = cun.namespaces[0];
             is_interface = true;
-            VisitConstantDefinitions();//сериализуем константы
-			VisitVariableDefinitions();//сериализуем переменные
-            
-			VisitFunctionDefinitions();//сериализуем функции
+            VisitConstantDefinitions();//serialize constants
+			VisitVariableDefinitions();//serialize variables
+
+			VisitFunctionDefinitions();//serialize functions
             VisitRefTypeDefinitions();
             VisitEventDefinitions();
             cur_cnn = cun.namespaces[1];
 			is_interface = false;
 			entity_index = 0;
-			//имплементационная часть
+			//implementation section
 			VisitConstantDefinitions();
 			VisitVariableDefinitions();
 			VisitFunctionDefinitions();
             VisitRefTypeDefinitions();
             VisitEventDefinitions();
             cur_cnn = cun.namespaces[0];
-            //сериализуем тела функций
+            //serialize function bodies
             foreach (common_namespace_function_node cnfn in cur_cnn.functions)
             {
                 VisitFunctionImplementation(cnfn);
             }
-            //сериализуем тела методов и конструкторов типа
+            //serialize method and constructor bodies of the type
             foreach (common_type_node ctn in cur_cnn.non_template_types)
             {
                 VisitTypeImplementation(ctn);
             }
             cur_cnn = cun.namespaces[1];
-            //имплементационная часть
+            //implementation section
 			foreach (common_namespace_function_node cnfn in cur_cnn.functions)
 			 VisitFunctionImplementation(cnfn);
             foreach (common_type_node ctn in cur_cnn.non_template_types)
@@ -402,7 +402,7 @@ namespace PascalABCCompiler.PCU
             WriteInitExpressions();
             WriteFunctionReferences();
             WriteTypeReferences();
-            //сохранение интерфейсной и имплементац. частей модуля
+            //saving the interface and implementation sections of the module
             if (ext_offsets.Count != 0)
             {
                 List<definition_node> dnl = new List<definition_node>(ext_offsets.Keys);
@@ -421,7 +421,7 @@ namespace PascalABCCompiler.PCU
             
 		}
 
-        //запись шапки PCU на диск
+        //writing the PCU header to disk
 		private void WritePCUHeader(BinaryWriter fbw)
 		{
 			pcu_file.ref_assemblies = new string[ref_assemblies.Count];
@@ -523,20 +523,20 @@ namespace PascalABCCompiler.PCU
             }
 		}
 
-        //отложенное добавление смещения импортирумой сущности в список импорт. сущностей
-        //используется при циклических связях модулей
+        //deferred addition of an imported entity's offset to the list of imported entities
+        //used when modules have circular dependencies
         private void AddOffsetForMembers(definition_node dn, int offset)
         {
             if (!ext_offsets.ContainsKey(dn))
             {
             	return;
             }
-        	int pos = ext_offsets[dn]; //берем индекс в списке имп. сущ.
-           
-            imp_entitles[pos].offset = offset; // сохраняем смещение в другом модуле
-            ext_offsets.Remove(dn); //удаляем сущность из таблицы
-            //if (ext_offsets.Count == 0) 
-                //CloseWriter(); // если не разрешенных зависимостей больше нет, записываем модуль на диск
+        	int pos = ext_offsets[dn]; //get the index in the imported entities list
+
+            imp_entitles[pos].offset = offset; // save the offset in the other module
+            ext_offsets.Remove(dn); //remove the entity from the table
+            //if (ext_offsets.Count == 0)
+                //CloseWriter(); // if there are no more unresolved dependencies, write the module to disk
         }
 		
         private Dictionary<definition_node, List<int>> attr_dict = new Dictionary<definition_node, List<int>>();
@@ -567,7 +567,7 @@ namespace PascalABCCompiler.PCU
             bw.Write((Int64)0);
 
         }
-        // запись PCU на диск
+        // writing the PCU to disk
         internal void CloseWriter()
         {
             FileStream fs = new FileStream(FileName, FileMode.Create, FileAccess.ReadWrite);
@@ -598,7 +598,7 @@ namespace PascalABCCompiler.PCU
             pcu_reader = pr;
         }
 
-        //сохранен ли PCU на диск
+        //whether the PCU has been saved to disk
         public bool IsSaved()
         {
             return ext_offsets.Count == 0;
@@ -665,7 +665,7 @@ namespace PascalABCCompiler.PCU
             }
         }
 
-        //получения индекса сборки в списке подключаемых сборок
+        //getting the assembly index in the list of referenced assemblies
         private int GetAssemblyToken(Assembly a)
 		{
             int pos = 0;
@@ -679,7 +679,7 @@ namespace PascalABCCompiler.PCU
 			return num;
 		}
 		
-        //получение смещения сущности в модуле
+        //getting the entity offset in the module
 		private int GetMemberOffset(definition_node dn)
 		{
             int off = members[dn];
@@ -687,7 +687,7 @@ namespace PascalABCCompiler.PCU
             return members[dn];
 		}
 		
-        //получения индекса в таблице интерфейсных имен
+        //getting the index in the interface names table
 		private int GetNameIndex(definition_node dn)
 		{
 			return name_pool[dn].index;
@@ -698,7 +698,7 @@ namespace PascalABCCompiler.PCU
 			return members[nn];
 		}
 		
-        //получение смещения в другом модуле
+        //getting the offset in another module
 		private int GetExternalOffset(definition_node dn)
 		{
             int off = -1;
@@ -710,13 +710,13 @@ namespace PascalABCCompiler.PCU
             return off;
 		}
 
-        //сериализована ли сущность
+        //whether the entity has been serialized
 		private bool IsDefined(definition_node dn)
 		{
             return members.ContainsKey(dn);
 		}
 		
-        //добавить внешнюю сущность
+        //add an external entity
         public static void AddExternalMember(definition_node dn, int offset)
         {
             gl_members[dn] = offset;
@@ -725,7 +725,7 @@ namespace PascalABCCompiler.PCU
         private int entity_index=0;
         private int type_entity_index = 0;
 
-        //сохранить смещение сущности в таблицах и в списке интерфейсных имен
+        //save the entity offset in the tables and in the interface names list
 		private int SavePositionAndConstPool(definition_node dn)
 		{
             int pos = (int)bw.BaseStream.Position;
@@ -740,14 +740,14 @@ namespace PascalABCCompiler.PCU
             
 			gl_members[dn] = pos;
             List<PCUWriter> pwl = null;
-            //если какой-то модуль ждет смещения от этой сущности, сообщаем ему
+            //if some module is waiting for the offset of this entity, notify it
             if (not_comp_members.TryGetValue(dn, out pwl))
                 foreach(PCUWriter pw in pwl) 
             	pw.AddOffsetForMembers(dn, pos);
             PCUReader.AddReadOrWritedDefinitionNode(dn, pos);
             return pos;
 		}
-        //то же самое, но только для членов класса (это лишнее можно объединить)
+        //same as above but only for class members (these two methods could be merged)
 /*		private int SavePositionAndConstPoolInType(definition_node dn)
 		{
             int pos = (int)bw.BaseStream.Position;
@@ -760,7 +760,7 @@ namespace PascalABCCompiler.PCU
             return pos;
 		}*/
 		
-        //просто сохраняем смещение сущности
+        //simply save the entity offset
 		private int SavePosition(definition_node dn)
 		{
             int pos = (int)bw.BaseStream.Position;
@@ -769,7 +769,7 @@ namespace PascalABCCompiler.PCU
             return pos;
 		}
 
-        //(ssyy) сохраняем смещение сущности (для implementation)
+        //(ssyy) save the entity offset (for implementation)
         private int SavePositionAndImplementationPool(definition_node dn)
         {
             int pos = (int)bw.BaseStream.Position;
@@ -779,13 +779,13 @@ namespace PascalABCCompiler.PCU
             return pos;
         }
 
-        //связываем сущность со смещением, по которому находится тело методов
+        //associate the entity with the offset where the method body is located
 		private void SaveCodeReference(function_node fn)
 		{
 			func_codes[fn] = (int)bw.BaseStream.Position;
 		}
 		
-        //сообщаем функции смещение, по которому расположен ее код
+        //tell the function the offset at which its code is located
 		private void FixupCode(function_node fn)
 		{
 			int tmp = (int)bw.BaseStream.Position;
@@ -795,7 +795,7 @@ namespace PascalABCCompiler.PCU
 			bw.Seek(tmp,SeekOrigin.Begin);
 		}
 		
-        //заполнение списка интерфейсных имен модуля
+        //filling the list of interface names of the module
 		private void GetCountOfMembers()
 		{
             int num = cur_cnn.constants.Count + cur_cnn.functions.Count + cur_cnn.non_template_types.Count + cur_cnn.runtime_types.Count + cur_cnn.variables.Count + cur_cnn.templates.Count + cur_cnn.ref_types.Count + cur_cnn.events.Count;
@@ -1148,7 +1148,7 @@ namespace PascalABCCompiler.PCU
             AddIndirectUsedUnitsInVariables(cnn.variables, impl_ns_dict, true);
         }
         
-        //заполнение списка подключаемых модулей
+        //filling the list of included modules
 		private void GetUsedUnits()
 		{
             AddIndirectInteraceUsedUnits();
@@ -1161,15 +1161,15 @@ namespace PascalABCCompiler.PCU
             var incl_modules = new List<string>(c1 + c2);
             foreach (var used_unit in unit.InterfaceUsedUnits.OfType<common_unit_node>())
             {
-                // Каждый модуль, зачем то, подключён сам к себе
-                // Конечно, записи в unit_uses_paths для такого подключения - нет
+                // Each module, for some reason, includes itself
+                // Naturally, there is no entry in unit_uses_paths for such an inclusion
                 if (unit.SemanticTree == used_unit) continue;
 
-                // AddIndirectInteraceUsedUnits может добавлять один и тот же модуль несколько раз
+                // AddIndirectInteraceUsedUnits may add the same module more than once
                 if (used_units.ContainsKey(used_unit)) continue;
 
-                // раньше вместо пути модуля - брало имя его первого пространства имён
-                // и сразу стояла эта проверка. Если будет тут вылетать - наверное надо заменить throw на continue
+                // Previously, instead of the module path, it used the name of its first namespace
+                // and this check was already in place. If it crashes here — probably need to replace throw with continue
                 if (used_unit.namespaces.Count == 0) throw new InvalidOperationException();
 
                 this.used_units.Add(used_unit, used_units.Count);
@@ -1193,7 +1193,7 @@ namespace PascalABCCompiler.PCU
             pcu_file.used_namespaces = cun.used_namespaces.ToArray();
 		}
 		
-        //получения индекса модуля в списке подключ. модулей
+        //getting the module index in the list of included modules
 		private int GetUnitToken(common_namespace_node ns)
 		{
             return used_units[ns.cont_unit as common_unit_node];
@@ -1330,7 +1330,7 @@ namespace PascalABCCompiler.PCU
             dnnr.kind = DotNetKind.Type;
             if (val.FullName != null)
             {
-                //(ssyy) для инстанций generic-ов пишем имя оригинала
+                //(ssyy) for generic instances we write the name of the original
                 if (val.IsGenericType && !val.IsGenericTypeDefinition)
                     dnnr.name = val.GetGenericTypeDefinition().FullName;
                 else
@@ -1359,10 +1359,10 @@ namespace PascalABCCompiler.PCU
             return off;
         }
 
-        //получения ссылки на тип
+        //getting a reference to a type
 		private int GetTypeReference(type_node tn, ref byte is_def)
 		{
-			//если это откомпилир. тип
+			//if this is a compiled type
             if (tn.semantic_node_type == semantic_node_type.compiled_type_node)
 			{
 				is_def = 0;
@@ -1372,27 +1372,27 @@ namespace PascalABCCompiler.PCU
                 {
                     return ie.index*ie.GetSize();
                 }
-				//заполняем структуру в списке импортируемых сущностей
+				//fill the record in the list of imported entities
                 ie = new ImportedEntity();
 				ie.index = imp_entitles.Count;
 				ie.flag = ImportKind.DotNet;
 				ie.num_unit = GetAssemblyToken(ctn.compiled_type.Assembly);
-				//ie.offset = (int)ctn.compiled_type.MetadataToken;//токен для типа (уникален в сборке)
+				//ie.offset = (int)ctn.compiled_type.MetadataToken;//token for the type (unique within the assembly)
                 ie.offset = GetTokenForNetEntity(ctn.compiled_type);
 				int offset = imp_entitles.Count*ie.GetSize();
-				imp_entitles.Add(ie);//добавляем структуру
+				imp_entitles.Add(ie);//add the record
 				ext_members[ctn] = ie;
-				return offset;//возвращаем смещение относительно начала списка импорт. сущ-тей
+				return offset;//return the offset relative to the start of the imported entities list
 			}
 			else
 			{
                 int off = 0;
-                if (members.TryGetValue(tn, out off)) //если этот тип описан в этом модуле
+                if (members.TryGetValue(tn, out off)) //if this type is defined in this module
 				{
 					is_def = 1;
-					return off;//возвращаем его смещение
+					return off;//return its offset
 				}
-                //иначе он описан в другом модуле
+                //otherwise it is defined in another module
 				is_def = 0;
                 ImportedEntity ie = null;
                 if (ext_members.TryGetValue(tn, out ie))
@@ -1402,8 +1402,8 @@ namespace PascalABCCompiler.PCU
 				common_type_node ctn = (common_type_node)tn;
 				ie = new ImportedEntity();
 				ie.flag = ImportKind.Common;
-				ie.num_unit = GetUnitToken(ctn.comprehensive_namespace);//получаем модуль
-				ie.offset = GetExternalOffset(ctn);//получаем смещение в другом модуле
+				ie.num_unit = GetUnitToken(ctn.comprehensive_namespace);//get the module
+				ie.offset = GetExternalOffset(ctn);//get the offset in the other module
 				int offset = imp_entitles.Count*ie.GetSize();
                 ie.index = imp_entitles.Count;
                 imp_entitles.Add(ie);
@@ -1416,12 +1416,12 @@ namespace PascalABCCompiler.PCU
         private int GetTemplateTypeReference(template_class tc, ref byte is_def)
         {
             int off = 0;
-            if (members.TryGetValue(tc, out off)) //если этот тип описан в этом модуле
+            if (members.TryGetValue(tc, out off)) //if this type is defined in this module
             {
                 is_def = 1;
-                return off;//возвращаем его смещение
+                return off;//return its offset
             }
-            //иначе он описан в другом модуле
+            //otherwise it is defined in another module
             is_def = 0;
             ImportedEntity ie = null;
             if (ext_members.TryGetValue(tc, out ie))
@@ -1430,8 +1430,8 @@ namespace PascalABCCompiler.PCU
             }
             ie = new ImportedEntity();
             ie.flag = ImportKind.Common;
-            ie.num_unit = GetUnitToken(tc.cnn);//получаем модуль
-            ie.offset = GetExternalOffset(tc);//получаем смещение в другом модуле
+            ie.num_unit = GetUnitToken(tc.cnn);//get the module
+            ie.offset = GetExternalOffset(tc);//get the offset in the other module
             int offset = imp_entitles.Count * ie.GetSize();
             ie.index = imp_entitles.Count;
             imp_entitles.Add(ie);
@@ -1440,7 +1440,7 @@ namespace PascalABCCompiler.PCU
         }
         //\ssyy
 		
-        //получения ссылки на откомпилированный тип
+        //getting a reference to a compiled type
 		private int GetCompiledTypeReference(compiled_type_node ctn)
 		{
             ImportedEntity ie = null;
@@ -1460,7 +1460,7 @@ namespace PascalABCCompiler.PCU
 			return offset;
 		}
 		
-        //получение ссылки на тип, описанный в другом модуле
+        //getting a reference to a type defined in another module
 		private int GetExtTypeReference(common_type_node ctn)
 		{
             ImportedEntity ie = null;
@@ -1479,8 +1479,8 @@ namespace PascalABCCompiler.PCU
 			return offset;
 		}
 		
-        //запись ссылки на тип
-        //флаг|смещение
+        //writing a type reference
+        //flag|offset
 		private void WriteTypeReference(type_node type)
 		{
             if (type == null)
@@ -1488,15 +1488,15 @@ namespace PascalABCCompiler.PCU
                 bw.Write((System.Byte)255);
                 return;
             }
-			//если это массив
+			//if this is an array
             if (type.semantic_node_type == semantic_node_type.simple_array)
             {
                 WriteArrayType((simple_array)type);
                 return;
             }
-            //если это указатель
-            //Наверно также надо сохранять Pointer,
-            //  пока он востанавливается из таблицы nethelper.special_types
+            //if this is a pointer
+            //Probably Pointer should also be saved,
+            //  for now it is restored from the nethelper.special_types table
             if (type.semantic_node_type == semantic_node_type.ref_type_node)
             {
                 WritePointerType((ref_type_node)type);
@@ -1508,7 +1508,7 @@ namespace PascalABCCompiler.PCU
             	return;
             }
             internal_interface ii=type.get_internal_interface(internal_interface_kind.unsized_array_interface);
-            //(ssyy) 18.05.2008 Убрал проверку на compiled_type_node
+            //(ssyy) 18.05.2008 Removed the check for compiled_type_node
             if (ii != null) //&& type.element_type is compiled_type_node)
             {
                 array_internal_interface aii=(array_internal_interface)ii;
@@ -1516,14 +1516,14 @@ namespace PascalABCCompiler.PCU
                 return;
             }
             
-            //Пишем параметр generic-типа
+            //Write a generic type parameter
             if (type.is_generic_parameter)
             {
                 WriteGenericParameter(type as common_type_node);
                 return;
             }
 
-            //Пишем инстанцию generic-типа
+            //Write a generic type instance
             generic_instance_type_node gitn = type as generic_instance_type_node;
             if (gitn != null)
             {
@@ -1531,7 +1531,7 @@ namespace PascalABCCompiler.PCU
                 return;
             }
 
-            //Пишем инстанцию шаблонного класса
+            //Write a template class instance
             common_type_node c_t_n = type as common_type_node;
             if (c_t_n != null && c_t_n.original_template != null)
             {
@@ -1547,8 +1547,8 @@ namespace PascalABCCompiler.PCU
 
             byte is_def = 0;
 			int offset = GetTypeReference(type, ref is_def);
-			bw.Write(is_def); //пишем флаг импортируемый ли это тип или нет
-			bw.Write(offset); // сохраняем его смещение (это либо смещение в самом модуле, либо в списке импорт. сущностей)
+			bw.Write(is_def); //write the flag indicating whether this type is imported or not
+			bw.Write(offset); // save its offset (either an offset in this module, or in the imported entities list)
 		}
 
         private void WriteTypeReferenceWithDelay(common_type_node type)
@@ -1569,22 +1569,22 @@ namespace PascalABCCompiler.PCU
             }
         }
 
-        //(ssyy) Сохранение инстанции шаблонного класса
+        //(ssyy) Saving a template class instance
         private void WriteTemplateInstance(common_type_node cnode)
         {
             bw.Write((byte)TypeKind.TemplateInstance);
 
-            //Записать ссылку на шаблонный класс
+            //Write a reference to the template class
             WriteTemplateClassReference(cnode.original_template);
             WriteTypeList(cnode.original_template.GetParamsList(cnode));
         }
 
-        //(ssyy) Сохранение инстанции generic-класса
+        //(ssyy) Saving a generic class instance
         private void WriteGenericTypeInstance(generic_instance_type_node gitn)
         {
             bw.Write((byte)TypeKind.GenericInstance);
 
-            //Пишем ссылку на описание generic-типа
+            //Write a reference to the generic type definition
             WriteTypeReference(gitn.original_generic);
             WriteTypeList(gitn.instance_params);
         }
@@ -1613,13 +1613,13 @@ namespace PascalABCCompiler.PCU
             WriteTypeList(meth.get_generic_params_list());
         }
 
-        //(ssyy) Сохранение параметров generic-типов
+        //(ssyy) Saving generic type parameters
         private void WriteGenericParameter(common_type_node type)
         {
             if (type.generic_type_container != null)
             {
                 bw.Write((byte)TypeKind.GenericParameterOfType);
-                //Пишем ссылку на generic-тип, содержащий данный параметр
+                //Write a reference to the generic type that contains this parameter
                 if (type.generic_type_container is common_type_node)
                     WriteTypeReferenceWithDelay(type.generic_type_container as common_type_node);
                 else
@@ -1643,19 +1643,19 @@ namespace PascalABCCompiler.PCU
             bw.Write(type.generic_param_index);
         }
 
-        //сохранение типа-массив
+        //saving an array type
         private void WriteArrayType(simple_array type)
         {
             int offset = (int)bw.BaseStream.Position;
             bw.Write((byte)TypeKind.Array);
             WriteTypeReference(type.element_type);
             bw.Write(type.length);
-            members[type] = offset;//это для нашего модуля
-            //ext_members[type] = offset;//это для других модулей
+            members[type] = offset;//this is for our module
+            //ext_members[type] = offset;//this is for other modules
             //VisitPropertyDefinition(type.default_property_node, offset);
         }
 
-        //сохранение типа-указатель
+        //saving a pointer type
         private void WritePointerType(ref_type_node type)
         {
             bw.Write((byte)TypeKind.Pointer); 
@@ -1685,14 +1685,14 @@ namespace PascalABCCompiler.PCU
             bw.Write(aii.rank);
         }
 
-        //получение ссылки на функцию
+        //getting a reference to a function
 		private int GetFunctionReference(common_namespace_function_node fn, ref byte is_def)
 		{
             int off = 0;
-            if (members.TryGetValue(fn, out off)) //если этот тип описан в этом модуле
+            if (members.TryGetValue(fn, out off)) //if this type is defined in this module
             {
                 is_def = 1;
-                return off;//возвращаем его смещение
+                return off;//return its offset
             }
 			is_def = 0;
             ImportedEntity ie = null;
@@ -1711,7 +1711,7 @@ namespace PascalABCCompiler.PCU
 			return offset;
 		}
 		
-        //получение ссылки на откомпилированный метод
+        //getting a reference to a compiled method
 		private int GetCompiledMethod(compiled_function_node cfn)
 		{
             ImportedEntity ie = null;
@@ -1731,7 +1731,7 @@ namespace PascalABCCompiler.PCU
 			return offset;
 		}
 
-        //получение ссылки на откомпилированный конструктор
+        //getting a reference to a compiled constructor
 		private int GetCompiledConstructor(compiled_constructor_node ccn)
 		{
             ImportedEntity ie = null;
@@ -1751,7 +1751,7 @@ namespace PascalABCCompiler.PCU
 			return offset;
 		}
 		
-        //получение ссылки на откомпилированное свойство
+        //getting a reference to a compiled property
         private int GetCompiledProperty(compiled_property_node cpn)
         {
             ImportedEntity ie = null;
@@ -1778,7 +1778,7 @@ namespace PascalABCCompiler.PCU
             bw.Write(0);
         }
 
-        //сохранение ссылки на функцию
+        //saving a reference to a function
         private void WriteFunctionReference(common_namespace_function_node fn)
 		{
 			generic_namespace_function_instance_node gi = fn as generic_namespace_function_instance_node;
@@ -1800,7 +1800,7 @@ namespace PascalABCCompiler.PCU
                 bw.Write((byte)fn.SpecialFunctionKind);
 		}
 
-        //сохранение ссылки на откомпилированный метод
+        //saving a reference to a compiled method
 		private void WriteCompiledMethod(compiled_function_node cfn)
 		{
             if (cfn.is_generic_function_instance)
@@ -1825,10 +1825,10 @@ namespace PascalABCCompiler.PCU
 		private int GetVariableReference(namespace_variable nv, ref byte is_def)
 		{
             int off = 0;
-            if (members.TryGetValue(nv, out off)) //если этот тип описан в этом модуле
+            if (members.TryGetValue(nv, out off)) //if this type is defined in this module
             {
                 is_def = 1;
-                return off;//возвращаем его смещение
+                return off;//return its offset
             }
             if (!used_units.ContainsKey(nv.namespace_node.cont_unit as common_unit_node))
             {
@@ -1855,10 +1855,10 @@ namespace PascalABCCompiler.PCU
 		private int GetConstantReference(namespace_constant_definition nv, ref byte is_def)
 		{
             int off = 0;
-            if (members.TryGetValue(nv, out off)) //если этот тип описан в этом модуле
+            if (members.TryGetValue(nv, out off)) //if this type is defined in this module
             {
                 is_def = 1;
-                return off;//возвращаем его смещение
+                return off;//return its offset
             }
             if (!used_units.ContainsKey(nv.comprehensive_namespace.cont_unit as common_unit_node))
             {
@@ -1991,25 +1991,25 @@ namespace PascalABCCompiler.PCU
                 {
                     return ie.index * ie.GetSize();
                 }
-                //заполняем структуру в списке импортируемых сущностей
+                //fill the record in the list of imported entities
                 ie = new ImportedEntity();
                 ie.index = imp_entitles.Count;
                 ie.flag = ImportKind.DotNet;
                 ie.num_unit = GetAssemblyToken(cev.event_info.DeclaringType.Assembly);
-                //ie.offset = (int)ctn.compiled_type.MetadataToken;//токен для типа (уникален в сборке)
+                //ie.offset = (int)ctn.compiled_type.MetadataToken;//token for the type (unique within the assembly)
                 ie.offset = GetTokenForNetEntity(cev.event_info.DeclaringType);
                 int offset = imp_entitles.Count * ie.GetSize();
-                imp_entitles.Add(ie);//добавляем структуру
+                imp_entitles.Add(ie);//add the record
                 ext_members[cev] = ie;
-                return offset;//возвращаем смещение относительно начала списка импорт. сущ-тей
+                return offset;//return the offset relative to the start of the imported entities list
             }
             else if (ev.semantic_node_type == semantic_node_type.common_namespace_event)
             {
                 int off = 0;
-                if (members.TryGetValue(ev, out off)) //если этот тип описан в этом модуле
+                if (members.TryGetValue(ev, out off)) //if this type is defined in this module
                 {
                     is_def = 4;
-                    return off;//возвращаем его смещение
+                    return off;//return its offset
                 }
                 is_def = 3;
                 ImportedEntity ie = null;
@@ -2030,10 +2030,10 @@ namespace PascalABCCompiler.PCU
             else
             {
                 int off = 0;
-                if (members.TryGetValue(ev, out off)) //если этот тип описан в этом модуле
+                if (members.TryGetValue(ev, out off)) //if this type is defined in this module
                 {
                     is_def = 1;
-                    return off;//возвращаем его смещение
+                    return off;//return its offset
                 }
                 is_def = 0;
                 ImportedEntity ie = null;
@@ -2056,10 +2056,10 @@ namespace PascalABCCompiler.PCU
 		private int GetFieldReference(class_field field, ref byte is_def)
 		{
             int off = 0;
-            if (members.TryGetValue(field, out off)) //если этот тип описан в этом модуле
+            if (members.TryGetValue(field, out off)) //if this type is defined in this module
             {
                 is_def = 1;
-                return off;//возвращаем его смещение
+                return off;//return its offset
             }
 			is_def = 0;
             ImportedEntity ie = null;
@@ -2100,7 +2100,7 @@ namespace PascalABCCompiler.PCU
             common_type_node ctnode = field.comperehensive_type as common_type_node;
             if (ctnode != null && ctnode.original_template != null)
             {
-                bw.Write(PCUConsts.template_field); //т.е. пишем на место is_def
+                bw.Write(PCUConsts.template_field); //i.e. we write in place of is_def
                 WriteTemplateInstance(ctnode);
                 bw.Write(ctnode.fields.IndexOf(field));
                 return;
@@ -2115,10 +2115,10 @@ namespace PascalABCCompiler.PCU
 		private int GetMethodReference(common_method_node meth, ref byte is_def)
 		{
             int off = 0;
-            if (members.TryGetValue(meth, out off)) //если этот тип описан в этом модуле
+            if (members.TryGetValue(meth, out off)) //if this type is defined in this module
             {
                 is_def = 1;
-                return off;//возвращаем его смещение
+                return off;//return its offset
             }
 			is_def = 0;
             ImportedEntity ie = null;
@@ -2191,7 +2191,7 @@ namespace PascalABCCompiler.PCU
             common_type_node ctnode = meth.comperehensive_type as common_type_node;
             if (ctnode != null && ctnode.original_template != null)
             {
-                bw.Write(PCUConsts.template_meth); //т.е. пишем на место is_def
+                bw.Write(PCUConsts.template_meth); //i.e. we write in place of is_def
                 WriteTemplateInstance(ctnode);
                 bw.Write(ctnode.methods.IndexOf(meth));
                 return;
@@ -2214,17 +2214,17 @@ namespace PascalABCCompiler.PCU
         {
             byte is_def = 0;
             int t_offset = GetTemplateTypeReference(tc, ref is_def);
-            bw.Write(is_def); //пишем флаг импортируемый ли это тип или нет
-            bw.Write(t_offset); // сохраняем его смещение (это либо смещение в самом модуле, либо в списке импорт. сущностей)
+            bw.Write(is_def); //write the flag indicating whether this type is imported or not
+            bw.Write(t_offset); // save its offset (either an offset in this module, or in the imported entities list)
         }
 
         private int GetPropertyReference(common_property_node prop, ref byte is_def)
         {
             int off = 0;
-            if (members.TryGetValue(prop, out off)) //если этот тип описан в этом модуле
+            if (members.TryGetValue(prop, out off)) //if this type is defined in this module
             {
                 is_def = 1;
-                return off;//возвращаем его смещение
+                return off;//return its offset
             }
             is_def = 0;
             ImportedEntity ie = null;
@@ -2313,7 +2313,7 @@ namespace PascalABCCompiler.PCU
             common_type_node ctnode = prop.common_comprehensive_type as common_type_node;
             if (ctnode != null && ctnode.original_template != null)
             {
-                bw.Write(PCUConsts.template_prop); //т.е. пишем на место is_def
+                bw.Write(PCUConsts.template_prop); //i.e. we write in place of is_def
                 WriteTemplateInstance(ctnode);
                 bw.Write(ctnode.properties.IndexOf(prop));
                 return;
@@ -2325,7 +2325,7 @@ namespace PascalABCCompiler.PCU
             bw.Write(offset);
         }
 
-        //сохранение пространства имен
+        //saving a namespace
 		private void WriteUnit()
 		{
 			SavePosition(cur_cnn);
@@ -2333,7 +2333,7 @@ namespace PascalABCCompiler.PCU
             WriteDebugInfo(cur_cnn.Location);
 		}
 
-        //сохранение констант
+        //saving constants
         private void VisitConstantDefinitions()
         {
             bw.Write(cur_cnn.constants.Count);
@@ -2341,7 +2341,7 @@ namespace PascalABCCompiler.PCU
                 VisitConstantDefinition(cur_cnn.constants[i]);
         }
 
-        //сохранение указателей на тип
+        //saving type pointers
         private void VisitRefTypeDefinitions()
         {
             bw.Write(cur_cnn.ref_types.Count);
@@ -2367,7 +2367,7 @@ namespace PascalABCCompiler.PCU
         }
 
 
-        //сохранение константы
+        //saving a constant
         private void VisitConstantDefinition(namespace_constant_definition cnst)
         {
             if (is_interface == true) 
@@ -2388,7 +2388,7 @@ namespace PascalABCCompiler.PCU
             WriteDebugInfo(cnst.loc);
         }
 
-        //сохранение переменных модуля
+        //saving module variables
 		private void VisitVariableDefinitions()
 		{
 			bw.Write(cur_cnn.variables.Count);
@@ -2451,7 +2451,7 @@ namespace PascalABCCompiler.PCU
             }
         }
 		
-        //сохранение типов
+        //saving types
 		private void VisitTypeDefinitions()
 		{
 			bw.Write(cur_cnn.non_template_types.Count);
@@ -2468,7 +2468,7 @@ namespace PascalABCCompiler.PCU
 				VisitCompiledTypeDefinition(cur_cnn.runtime_types[i]);
 		}
 
-        //сохранение меток
+        //saving labels
         private void VisitLabelDeclarations(List<label_node> labels)
         {
             bw.Write(labels.Count);
@@ -2478,7 +2478,7 @@ namespace PascalABCCompiler.PCU
             }
         }
 
-        //сохранение шаблонных классов
+        //saving template classes
         private void VisitTemplateClasses()
         {
             bw.Write(cur_cnn.templates.Count);
@@ -2486,7 +2486,7 @@ namespace PascalABCCompiler.PCU
                 VisitTemplateClassDefinition(cur_cnn.templates[i]);
         }
 
-        //сохранение синонимов типов
+        //saving type synonyms
         private void VisitTypeSynonyms()
         {
             bw.Write(cur_cnn.type_synonyms.Count);
@@ -2577,11 +2577,11 @@ namespace PascalABCCompiler.PCU
                         bw.Write((byte)GenericParamKind.None);
                     }
                 }
-                //предок
+                //ancestor
                 WriteTypeReference(par.base_type);
-                //интерфейсы
+                //interfaces
                 WriteImplementingInterfaces(par);
-                //конструктор по умолчанию
+                //default constructor
                 if (par.methods.Count > 0)
                 {
                     bw.Write((byte)1);
@@ -2665,13 +2665,13 @@ namespace PascalABCCompiler.PCU
                 bw.Write((byte)0);
             }
 
-            //Является ли тип описанием дженерика
+            //Whether the type is a generic definition
             if (type.is_generic_type_definition)
             {
                 bw.Write((byte)1);
-                //Число типов-параметров
+                //Number of type parameters
                 bw.Write(type.generic_params.Count);
-                //Имена параметров
+                //Parameter names
                 foreach (common_type_node par in type.generic_params)
                 {
                     bw.Write(par.name);
@@ -2688,7 +2688,7 @@ namespace PascalABCCompiler.PCU
 
             bw.Write(type.internal_is_value);
 
-            //Пишем поддерживаемые интерфейсы
+            //Write the supported interfaces
             //eto nepravilno!!! a vdrug bazovye interfejsy eshe ne projdeny.
             //WriteImplementingInterfaces(type);
             int interface_impl_off = (int)bw.BaseStream.Position;
@@ -2712,7 +2712,7 @@ namespace PascalABCCompiler.PCU
 
             if (type.is_generic_type_definition)
             {
-                //Ограничители параметров
+                //Parameter constraints
                 WriteTypeParamsEliminations(type.generic_params);
             }
             if (CanWriteObject(type.element_type))
@@ -2729,7 +2729,7 @@ namespace PascalABCCompiler.PCU
             if (type.default_property != null)
                 bw.Write(0);//default_property
             WriteDebugInfo(type.loc);
-            //заполнение списка имен членов этого класса
+            //filling the list of member names for this class
             int num = type.const_defs.Count + type.fields.Count + type.properties.Count + type.methods.Count + type.events.Count;
             NameRef[] names = new NameRef[num];
             int pos = (int)bw.BaseStream.Position;
@@ -2819,14 +2819,14 @@ namespace PascalABCCompiler.PCU
             int offset = 0;
             offset = SavePositionAndConstPool(tclass);//SavePosition(tclass);
             bw.Write((byte)tclass.semantic_node_type);
-            //Пишем название шаблонного класса
+            //Write the name of the template class
             bw.Write(tclass.name);
             if (tclass.is_synonym)
                 bw.Write((byte)1);
             else
                 bw.Write((byte)0);
-            //bw.Write(GetUnitReference(tclass.cnn)); //(ssyy) Нужно ли это?
-            //Пишем имена подключаемых сборок
+            //bw.Write(GetUnitReference(tclass.cnn)); //(ssyy) Is this needed?
+            //Write the names of included assemblies
             bw.Write(tclass.using_list.Count);
             foreach (using_namespace un in tclass.using_list)
             {
@@ -2845,7 +2845,7 @@ namespace PascalABCCompiler.PCU
                     bw.Write(un.namespace_name);
                 }
             }
-            //Пишем имя файла, где описан шаблон
+            //Write the name of the file where the template is defined
             if (tclass.cur_document == null)
                 bw.Write((byte)0);
             else
@@ -2862,7 +2862,7 @@ namespace PascalABCCompiler.PCU
             else
             {
                 bw.Write((byte)1);
-                //Пишем синтаксическое дерево шаблона
+                //Write the syntax tree of the template
                 tclass.type_dec.visit(stw);
             }
             bw.Write(tclass.external_methods.Count);
@@ -2960,7 +2960,7 @@ namespace PascalABCCompiler.PCU
             bw.BaseStream.Seek(tmp, SeekOrigin.Begin);
         }
 
-        //сохранение полей
+        //saving fields
 		private void VisitFieldDefinitions(common_type_node ctn)
 		{
 			bw.Write(ctn.fields.Count);
@@ -2969,7 +2969,7 @@ namespace PascalABCCompiler.PCU
 				VisitFieldDefinition(ctn.fields[i],offset);
 		}
 		
-        //сохранение классовых констант
+        //saving class constants
 		private void VisitConstantInTypeDefinitions(common_type_node ctn)
 		{
 			int offset = GetMemberOffset(ctn);
@@ -2978,7 +2978,7 @@ namespace PascalABCCompiler.PCU
 				VisitConstantInTypeDefinition(ctn.const_defs[i],offset);
 		}
 		
-        //сохранение методов
+        //saving methods
 		private void VisitMethodDefinitions(common_type_node ctn)
 		{
 			int offset = GetMemberOffset(ctn);
@@ -2987,7 +2987,7 @@ namespace PascalABCCompiler.PCU
 				VisitMethodDefinition(ctn.methods[i],offset);
 		}
 
-        //сохранение свойств
+        //saving properties
 		private void VisitPropertyDefinitions(common_type_node ctn)
 		{
 			int offset = GetMemberOffset(ctn);
@@ -3063,8 +3063,8 @@ namespace PascalABCCompiler.PCU
 		
 		private void VisitMethodDefinition(common_method_node meth, int offset)
 		{
-            //DarkStar это вроде не нужно, он и так сохраняется ???
-            //Вероятно здесь ошибка!!!
+            //DarkStar this doesn't seem to be needed, it gets saved anyway ???
+            //Probably there is a bug here!!!
             if (IsDefined(meth))
                 return;
             SavePositionAndConstPool(meth);
@@ -3089,14 +3089,14 @@ namespace PascalABCCompiler.PCU
                 bw.Write((byte)0);
             }
 
-            //Является ли метод описанием дженерика
+            //Whether the method is a generic definition
             WriteGenericFunctionInformation(meth);
             //if (meth.is_generic_function)
             //{
             //    bw.Write((byte)1);
-            //    //Число типов-параметров
+            //    //Number of type parameters
             //    bw.Write(meth.generic_params.Count);
-            //    //Имена параметров
+            //    //Parameter names
             //    foreach (common_type_node par in meth.generic_params)
             //    {
             //        bw.Write(par.name);
@@ -3196,7 +3196,7 @@ namespace PascalABCCompiler.PCU
 			WriteDebugInfo(prop.loc);
 		}
 		
-        //сохранение функций
+        //saving functions
 		private void VisitFunctionDefinitions()
 		{
 			bw.Write(cur_cnn.functions.Count);
@@ -3209,9 +3209,9 @@ namespace PascalABCCompiler.PCU
             if (func.is_generic_function)
             {
                 bw.Write((byte)1);
-                //Число типов-параметров
+                //Number of type parameters
                 bw.Write(func.generic_params.Count);
-                //Имена параметров
+                //Parameter names
                 foreach (common_type_node par in func.generic_params)
                 {
                     bw.Write(par.name);
@@ -3232,7 +3232,7 @@ namespace PascalABCCompiler.PCU
             else
                 pos = SavePositionAndImplementationPool(func);
 
-            //Переделать это!
+            //Refactor this!
             if (cun.main_function == func)
                 InitializationMethodOffset = pos;
             if (cun.finalization_method == func)
@@ -3253,14 +3253,14 @@ namespace PascalABCCompiler.PCU
             else
                 bw.Write(func.name);
 
-            //Является ли метод описанием дженерика
+            //Whether the method is a generic definition
             WriteGenericFunctionInformation(func);
             //if (func.is_generic_function)
             //{
             //    bw.Write((byte)1);
-            //    //Число типов-параметров
+            //    //Number of type parameters
             //    bw.Write(func.generic_params.Count);
-            //    //Имена параметров
+            //    //Parameter names
             //    foreach (common_type_node par in func.generic_params)
             //    {
             //        bw.Write(par.name);
@@ -3304,7 +3304,7 @@ namespace PascalABCCompiler.PCU
             bw.Write(0);
         }
 
-        //сохранение initialization и finalization частей
+        //saving the initialization and finalization sections
         private int VisitFunctionWithImplementation(common_namespace_function_node func)
         {
             int pos = SavePosition(func);
@@ -3327,12 +3327,12 @@ namespace PascalABCCompiler.PCU
                 VisitMethodImplementation(meth);
         }
 
-        //сохранение реализации метода
+        //saving a method implementation
         private void VisitMethodImplementation(common_method_node meth)
         {
             foreach (common_in_function_function_node nested in meth.functions_nodes_list)
                 VisitNestedFunctionImplementation(nested);
-            //(ssyy) метки
+            //(ssyy) labels
             VisitLabelDeclarations(meth.label_nodes_list);
             FixupCode(meth);
             //if (meth.function_code == null)
@@ -3355,12 +3355,12 @@ namespace PascalABCCompiler.PCU
             //}
         }
 
-        //(ssyy) Может быть, соединить следующие 2 метода в один?
+        //(ssyy) Maybe merge the following 2 methods into one?
 		private void VisitFunctionImplementation(common_namespace_function_node func)
 		{
 			foreach (common_in_function_function_node nested in func.functions_nodes_list)
 				VisitNestedFunctionImplementation(nested);
-            //(ssyy) метки
+            //(ssyy) labels
             VisitLabelDeclarations(func.label_nodes_list);
 			FixupCode(func);
             if (func.name.IndexOf("<yield_helper_error_checkerr>") != -1)
@@ -3373,7 +3373,7 @@ namespace PascalABCCompiler.PCU
 		{
 			foreach (common_in_function_function_node nested in func.functions_nodes_list)
 				VisitNestedFunctionImplementation(nested);
-            //(ssyy) метки
+            //(ssyy) labels
             VisitLabelDeclarations(func.label_nodes_list);
             FixupCode(func);
 			VisitStatement(func.function_code);
@@ -3388,7 +3388,7 @@ namespace PascalABCCompiler.PCU
 			//VisitExpression((expression_node)cnst.const_value);
 		}
 		
-        //сохранение лок. переменной
+        //saving a local variable
 		private void VisitLocalVariable(local_variable var)
 		{
 			SavePosition(var);
@@ -3404,7 +3404,7 @@ namespace PascalABCCompiler.PCU
             }
         }
 		
-        //сохранение параметра
+        //saving a parameter
 		private void VisitParameter(common_parameter p)
 		{
 			SavePosition(p);
@@ -3427,7 +3427,7 @@ namespace PascalABCCompiler.PCU
             bw.Write(0);//attributes;
 		}
 		
-        //сохранение вложенной функций
+        //saving a nested function
 		private void VisitNestedFunctionDefinition(common_in_function_function_node func)
 		{
 			SavePosition(func);
@@ -3462,13 +3462,13 @@ namespace PascalABCCompiler.PCU
 			bw.Write(0);
 		}
 		
-		//сохранение отлад. информации
+		//saving debug information
 		private void WriteDebugInfo(SemanticTree.ILocation loc)
 		{
             WriteDebugInfo(bw,loc);
 		}
-        
-		//сохранение отлад. информации
+
+		//saving debug information
         private void WriteDebugInfo(BinaryWriter bw,SemanticTree.ILocation loc)
         {
             if (pcu_file.IncludeDebugInfo)
@@ -3820,7 +3820,7 @@ namespace PascalABCCompiler.PCU
             //WriteDebugInfo(en.location);
 			switch (en.semantic_node_type) {
                 case semantic_node_type.exit_procedure:
-                    /*ничего писать не надо*/ break;
+                    /*nothing to write*/ break;
                 case semantic_node_type.typeof_operator:
                     VisitTypeOfOperator((typeof_operator)en); break;
                 case semantic_node_type.statement_expression_node:
@@ -4292,7 +4292,7 @@ namespace PascalABCCompiler.PCU
 		private void VisitCommonConstructorCall(common_constructor_call expr)
 		{
 			WriteMethodReference(expr.function_node);
-            //ssyy добавил
+            //ssyy added
             if (expr._new_obj_awaited)
             {
                 bw.Write((byte)1);
@@ -4310,7 +4310,7 @@ namespace PascalABCCompiler.PCU
 		private void VisitCompiledConstructorCall(compiled_constructor_call expr)
 		{
 			WriteCompiledConstructor(expr.function_node);
-            //ssyy добавил
+            //ssyy added
             if (expr._new_obj_awaited)
             {
                 bw.Write((byte)1);

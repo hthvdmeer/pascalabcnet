@@ -419,16 +419,6 @@ namespace PascalABCCompiler.NetHelper
                 a = System.Reflection.Assembly.LoadFrom(name);
             }
 
-            // On .NET 5+, framework DLLs (mscorlib, System, etc.) are pure type-forwarding facades
-            // with 0 exported types. Substitute the real runtime assembly so namespaces are populated.
-            if (System.Environment.Version.Major >= 5)
-            {
-                int typeCount = 0;
-                try { typeCount = a.GetTypes().Length; }
-                catch (ReflectionTypeLoadException rtle) { foreach (var t in rtle.Types) if (t != null) typeCount++; }
-                if (typeCount == 0)
-                    a = typeof(object).Assembly; // System.Private.CoreLib — contains all fundamental types
-            }
 
             ass_name_cache[name] = a;
             assm_full_paths[a] = name;
@@ -456,7 +446,45 @@ namespace PascalABCCompiler.NetHelper
             if (assembly == null)
             {
 
-                Type[] tarr = _assembly.GetTypes();
+                Type[] tarr;
+                try { tarr = _assembly.GetTypes(); }
+                catch (ReflectionTypeLoadException rtle)
+                {
+                    var lst = new List<Type>();
+                    foreach (var rt in rtle.Types) if (rt != null) lst.Add(rt);
+                    tarr = lst.ToArray();
+                }
+                // On .NET 5+, framework DLLs are pure type-forwarding facades (GetTypes returns empty).
+                // GetForwardedTypes follows the forwarder entries to the real implementation assemblies,
+                // correctly handling e.g. System.Numerics→System.Runtime.Numerics.
+                // For large facades like mscorlib, GetForwardedTypes throws because some old .NET Framework
+                // types were removed in .NET 5+. In that case, scan all AppDomain assemblies that live in
+                // the .NET runtime directory — they are already loaded in-process (e.g. System.Console.dll,
+                // System.Runtime.Numerics.dll) and together cover every type the facade forwards.
+                if (tarr.Length == 0 && System.Environment.Version.Major >= 5)
+                {
+                    try
+                    {
+                        tarr = _assembly.GetForwardedTypes();
+                    }
+                    catch
+                    {
+                        var runtimeDir = Path.GetDirectoryName(typeof(object).Assembly.Location);
+                        var lst2 = new List<Type>();
+                        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                        {
+                            var loc = asm.Location;
+                            if (string.IsNullOrEmpty(loc)) continue;
+                            if (!loc.StartsWith(runtimeDir, StringComparison.OrdinalIgnoreCase)) continue;
+                            if (assemblies.Contains(asm)) continue; // already processed
+                            try { lst2.AddRange(asm.GetTypes()); }
+                            catch (ReflectionTypeLoadException rtle2)
+                            { foreach (var t2 in rtle2.Types) if (t2 != null) lst2.Add(t2); }
+                            catch { }
+                        }
+                        tarr = lst2.ToArray();
+                    }
+                }
                 //Hashtable ns_ht = new Hashtable(CaseInsensitiveHashCodeProvider.Default,CaseInsensitiveComparer.Default);
                 var ns_ht = new HashSet<string>(StringComparer.CurrentCultureIgnoreCase);
                 foreach (Type t in tarr)
@@ -471,7 +499,7 @@ namespace PascalABCCompiler.NetHelper
                         //if (namespaces[s] == null) ns_ht.Add(s,s);
                         ns_ht.Add(s);
                         namespaces[s] = t;
-                        // SSM 17.05.19 Запретил uses Reflection: https://github.com/pascalabcnet/pascalabcnet/issues/1941
+                        // SSM 17.05.19 Disallowed uses of Reflection: https://github.com/pascalabcnet/pascalabcnet/issues/1941
                         /*if (pos != -1)
                         {
                             string[] sub_ns_arr = s.Split('.');
@@ -1121,33 +1149,33 @@ namespace PascalABCCompiler.NetHelper
             {
                 List<SymbolInfo> sil = scope.FindOnlyInType(op_name, scope);
                 if(sil != null)
-                    // что будет если два одинаковых преобразования? Может ли такое быть?
+                    // what happens if there are two identical conversions? Can that occur?
                     foreach(SymbolInfo si in sil)
                     {
                         if (si.sym_info is common_namespace_function_node)
                         {
                             function_node fn = si.sym_info as function_node;
-                            // SSM 17/07/24 Тут треш какой-то. fn - функция приведения типа. 
+                            // SSM 17/07/24 Something messy here. fn is a type conversion function.
                             if (
-                                // Тип возвращаемого значения fn совпадает с to
+                                // The return type of fn matches to
                                 (fn.return_value_type == to || fn.return_value_type.original_generic == to
-                                  // Тут странное условие. to - это массив, fn.return_value_type - это массив и 
-                                  // тип элемента этого массива - generic. То есть, это функция преобразования к array of T
-                                  // непонятно, можно ли тут двумерные массивы или просто system.array
+                                  // This is a strange condition. to is an array, fn.return_value_type is also an array
+                                  // and its element type is generic. So this is a conversion function to array of T.
+                                  // It is unclear whether multi-dimensional arrays are possible here or only system.array
                                   || to.type_special_kind == type_special_kind.array_kind 
                                      && fn.return_value_type != null 
                                      && fn.return_value_type.type_special_kind == type_special_kind.array_kind 
                                      && fn.return_value_type.element_type.is_generic_parameter
                                 ) 
-                                  // Ну тут более менее понятно. Параметр у преобразования - один - 
-                                  // и он в точности равен from
+                                  // This part is more or less clear. The conversion has exactly one parameter
+                                  // and it is exactly equal to from
                                   && fn.parameters.Count == 1 
                                   && (fn.parameters[0].type == from || fn.parameters[0].type.original_generic == from)
-                                // А тут самый главный треш. Мы преобразуем из массива. Почему то не проверяется уже, что 
-                                // количество параметров = 1. Ну ладно. Наверное это всегда так
-                                // Но далее просто сказано, что это обобщенный массив.
-                                // То есть, мы преобразуем из обобщенного массива array of T КУДА УГОДНО
-                                // и вообще не сравниваем с to. В этом и ошибка!
+                                // And here is the biggest mess. We are converting from an array. For some reason
+                                // the parameter count == 1 check is no longer performed here. Well, fine, it's probably always so.
+                                // But then it simply states that this is a generic array.
+                                // That is, we convert from a generic array of T TO ANYTHING
+                                // without even comparing with to. That is the bug!
                                 //|| fn.parameters[0].type.type_special_kind == type_special_kind.array_kind 
                                 //  && fn.parameters[0].type.element_type.is_generic_parameter
                                )
@@ -1158,13 +1186,13 @@ namespace PascalABCCompiler.NetHelper
                                 fn.parameters[0].type.type_special_kind == type_special_kind.array_kind
                                   && fn.parameters[0].type.element_type.is_generic_parameter
                                   && fn.parameters.Count == 1
-                                  // Вот это условие для set of T должно удовлетвориться и тогда всё будет работать!
+                                  // This condition for set of T should be satisfied and then everything will work!
                                   && (fn.return_value_type == to || fn.return_value_type.original_generic == to)
                                )
                             {
                                 return fn;
                             }
-                            // А теперь конкретно для преобразования array of T в set of T !!! Надо переделывать. Позже
+                            // Now specifically for the conversion of array of T to set of T !!! Needs to be reworked. Later
                             if (
                                 fn.parameters[0].type.type_special_kind == type_special_kind.array_kind
                                   && fn.parameters[0].type.element_type.is_generic_parameter
@@ -1174,14 +1202,14 @@ namespace PascalABCCompiler.NetHelper
                             {
                                 List<type_node> instance_params = new List<type_node>();
                                 
-                                instance_params.Add(ctn.element_type); // Это должен быть конкретный тип
+                                instance_params.Add(ctn.element_type); // This must be a concrete type
                                 var fn1 = fn.get_instance(instance_params, false, null);
                                 if (
                                     fn1.return_value_type == to || fn1.return_value_type.original_generic == to
                                    )
                                 {
-                                    // Вернуть тем не менее fn! Во внешнем коде он тоже инстанцируется!
-                                    // Это обязательно надо переделывать!
+                                    // Nevertheless return fn! It is also instantiated in the outer code!
+                                    // This absolutely must be refactored!
                                     return fn;
                                 }
                             }
@@ -1281,9 +1309,9 @@ namespace PascalABCCompiler.NetHelper
                 {
                     mis = t.GetMembers(bf);
                 }
-                //(ssyy) DarkStar, что за предупреждение по следующей строке?
+                //(ssyy) DarkStar, what is the warning about on the following line?
 				var ht = new Dictionary<string,List<MemberInfo>>(StringComparer.CurrentCultureIgnoreCase);
-                //(ssyy) DarkStar, может быть эффективнее слить следующие 2 цикла в один?
+                //(ssyy) DarkStar, would it be more efficient to merge the following 2 loops into one?
                 foreach (MemberInfo mi2 in mis)
                 {
                     //Console.WriteLine(mi2.Name.ToLower());
@@ -1379,7 +1407,7 @@ namespace PascalABCCompiler.NetHelper
 
         private static List<MemberInfo> EmptyMemberInfoList = new List<MemberInfo>();
 
-        //(ssyy) Является ли член класса видимым.
+        //(ssyy) Whether a class member is visible.
         public static field_access_level get_access_level(MemberInfo mi)
         {
             field_access_level amod = field_access_level.fal_public;
@@ -1518,7 +1546,7 @@ namespace PascalABCCompiler.NetHelper
 			List<SymbolInfo> sil=null;
 			List<MemberInfo> mis = GetMembers(t,name);
 
-            // вообще, фильтровать лучше в GetMembers EVA
+            // it would be better to filter in GetMembers EVA generally
             mis = new List<MemberInfo>(mis);
             if (caseSensitiveSearch)
             {
@@ -1598,13 +1626,13 @@ namespace PascalABCCompiler.NetHelper
             List<SymbolInfo> sil = null;
 
             List<MemberInfo> mis = GetMembers(t, name);
-            //(ssyy) Изменил алгоритм.
-            //У нас некоторые алгоритмы базируются на том, что возвращённые
-            //сущности будут одной природы (например, все - методы). Это неверно,
-            //так как в случае наличия функции Ident и поля ident оба должны попасть
-            //в список.
+            //(ssyy) Changed the algorithm.
+            //Some of our algorithms assume that all returned entities
+            //are of the same nature (e.g., all methods). This is incorrect,
+            //because if both a function Ident and a field ident exist, both must appear
+            //in the list.
 
-            //TODO: проанализировать и изменить алгоритмы, использующие поиск.
+            //TODO: analyze and update the algorithms that rely on search results.
             //List<SymbolInfo> si_list = new List<SymbolInfo>();
             if (tmp_name == "/" && mis.Count > 1)
             {
@@ -1642,7 +1670,7 @@ namespace PascalABCCompiler.NetHelper
                     {
                         case MemberTypes.Method:
                             temp = new SymbolInfo(compiled_function_node.get_compiled_method(mi as MethodInfo));
-                            // SSM 2018.05.05 исправляет bug #815
+                            // SSM 2018.05.05 fixes bug #815
                             temp.symbol_kind = symbol_kind.sk_overload_function;
                             break;
                         case MemberTypes.Constructor:
@@ -1916,7 +1944,7 @@ namespace PascalABCCompiler.NetHelper
             return cfn;
         }
 
-        //Возвращает акцессор get, если есть. Иначе возвращает акцессор set, если есть. Иначе возвращает null.
+        //Returns the get accessor if present. Otherwise returns the set accessor if present. Otherwise returns null.
         public static System.Reflection.MethodInfo GetAnyAccessor(PropertyInfo pi)
         {
             MethodInfo get = pi.GetGetMethod(true);
@@ -2200,6 +2228,16 @@ namespace PascalABCCompiler.NetHelper
                     t = a.GetType(name, false, true);
                     if (t != null) break;
                 }
+            // On .NET 5+, System.Private.CoreLib and other runtime assemblies are always loaded
+            // in the AppDomain but may not be in the NetHelper assemblies list.
+            if (t == null && System.Environment.Version.Major >= 5)
+            {
+                foreach (Assembly a in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    t = a.GetType(name, false, true);
+                    if (t != null) break;
+                }
+            }
             if (t != null)
             {
                 types[name] = new TypeInfo(t, t.FullName);

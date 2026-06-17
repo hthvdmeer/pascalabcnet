@@ -46,7 +46,7 @@ namespace PascalABCCompiler.PCU
         private Dictionary<int, definition_node> members = new Dictionary<int, definition_node>(64); // Dictionary<int, definition_node> for mapping offsets to entities
         private List<definition_node> impl_members = new List<definition_node>(64); // List storing deserialized implementation entities
         private List<definition_node> int_members = new List<definition_node>(64); // List storing deserialized interface entities
-        private Dictionary<int, definition_node> ext_members = new Dictionary<int, definition_node>(64); // Dictionary<int, definition_node> for mapping offsets to imported entities        private Dictionary<int, definition_node> ext_members = new Dictionary<int, definition_node>(64);//таблица<int,definition_node> для связывания смещений с импортируемыми сущностями
+        private Dictionary<int, definition_node> ext_members = new Dictionary<int, definition_node>(64); // Dictionary<int, definition_node> for mapping offsets to imported entities
         private Dictionary<string, Assembly> assemblies = new Dictionary<string, Assembly>();
         private Dictionary<common_type_node, string[]> class_names = new Dictionary<common_type_node, string[]>();
         private HashSet<string> used_units = new HashSet<string>();
@@ -392,7 +392,7 @@ namespace PascalABCCompiler.PCU
             return need;
         }
 
-        //процедура добавления десериализ. сущностей в common_namespace_node модуля
+        //procedure for adding deserialized entities to the common_namespace_node of the module
         public void AddMembersToNamespace()
         {
             foreach (definition_node dn in int_members)
@@ -494,13 +494,13 @@ namespace PascalABCCompiler.PCU
             return cnfn;
         }
 
-        //процедура добавления имен в пространство имен модуля
+        //procedure for adding names to the module namespace
         private void AddInterfaceNames()
         {
             AddNames(pcu_file.names, cun.scope);
         }
 
-        //(ssyy) процедура добавления имен в implementation-пространство имен модуля
+        //(ssyy) procedure for adding names to the implementation namespace of the module
         private void AddImplementationNames()
         {
             AddNames(pcu_file.implementation_names, cun.implementation_scope);
@@ -571,7 +571,7 @@ namespace PascalABCCompiler.PCU
             return true;
         }
 
-        //чтение заголовка PCU
+        //reading the PCU header
         private void ReadPCUHeader()
         {
             if (!ReadPCUHead(pcu_file, br) || PCUFile.SupportedVersion != pcu_file.Version || PCUFile.SupportedRevision != pcu_file.Revision)
@@ -705,11 +705,12 @@ namespace PascalABCCompiler.PCU
                             throw new AssemblyNotFound(unit_name, cd.directive, null);
                     }
                 }*/
-                Assembly a = NetHelper.NetHelper.LoadAssembly(name_with_path);
+                Assembly a = null;
+                // Try loading by full name first (handles system assemblies already loaded in the runtime)
+                try { a = Assembly.Load(new System.Reflection.AssemblyName(s)); } catch { }
+                if (a == null)
+                    a = NetHelper.NetHelper.LoadAssembly(name_with_path);
                 NetHelper.NetHelper.init_namespaces(a);
-                //}
-                //else
-                //  a = Assembly.Load(s);
                 if (!assemblies.ContainsKey(s))
                     assemblies[s] = a;
             }
@@ -729,7 +730,7 @@ namespace PascalABCCompiler.PCU
             waited_method_restoring = false;
         }
 
-        //получение кода метода
+        //getting the method body
         public statement_node GetCode(int offset)
         {
             int tmp = (int)br.BaseStream.Position;
@@ -749,19 +750,19 @@ namespace PascalABCCompiler.PCU
             return sn;
         }
 
-        //перейти на указанную позицию в списке импорт. сущ-тей
+        //move to the specified position in the list of imported entities
         private void SeekInExternal(int pos)
         {
             br.BaseStream.Seek(ext_pos + pos, SeekOrigin.Begin);
         }
 
-        //получаем имя сущности
+        //get the name of the entity
         private string GetString(int index)
         {
             return pcu_file.names[index].name;
         }
 
-        //получаем имя сущности-члена класса
+        //get the name of a class member entity
         private string GetStringInClass(common_type_node type, int name_off)
         {
             return class_names[type][name_off];
@@ -1052,7 +1053,7 @@ namespace PascalABCCompiler.PCU
             return ei;
         }
 
-        //чтение отлад. инф.
+        //reading debug info
         private location ReadDebugInfo()
         {
             if (pcu_file.IncludeDebugInfo)
@@ -1074,21 +1075,21 @@ namespace PascalABCCompiler.PCU
             return null;
         }
 
-        //получение импорт. типа
+        //getting an imported type
         private type_node ReadCommonExtType()
         {
             var pr = GetPCUReaderForUnitId(br.ReadInt32());
             return pr.GetTypeReference(br.ReadInt32());
         }
 
-        //(ssyy) Получение шаблонного класса
+        //(ssyy) Getting a template class
         private template_class ReadTemplateExtClass()
         {
             var pr = GetPCUReaderForUnitId(br.ReadInt32());
             return pr.GetTemplateClass(br.ReadInt32());
         }
 
-        //получение откомпил. типа
+        //getting a compiled type
         private compiled_type_node ReadNetExtType()
         {
             int pos = br.ReadInt32();
@@ -1108,19 +1109,19 @@ namespace PascalABCCompiler.PCU
                 //  a = Assembly.Load(s);
                 assemblies[s] = a;
             }
-            //Type t = NetHelper.NetHelper.FindTypeByHandle(a,br.ReadInt32());//находим его по токену
+            //Type t = NetHelper.NetHelper.FindTypeByHandle(a,br.ReadInt32());//find it by token
             Type t = FindTypeByHandle(br.ReadInt32());
             compiled_type_node ctn = compiled_type_node.get_type_node(t);
 
-            //Исправление ошибки 0000186
+            //Fix for bug 0000186
             if (ctn.scope == null)
-                // это условие вроде нужно чтоб не персоздавать стандартные сопы
+                // this condition seems necessary to avoid recreating standard scopes
                 ctn.scope = new NetHelper.NetTypeScope(t, SystemLibrary.SystemLibrary.symtab);
             return ctn;
 
         }
 
-        //получение откомпил. типа
+        //getting a compiled type
         private compiled_type_node GetNetExtType(int offset)
         {
             definition_node dn = null;
@@ -1155,7 +1156,7 @@ namespace PascalABCCompiler.PCU
             return ctn;
         }
 
-        //получение импортируемой функции
+        //getting an imported function
         private common_namespace_function_node ReadCommonExtNamespaceFunc()
         {
             br.ReadByte();
@@ -1237,13 +1238,13 @@ namespace PascalABCCompiler.PCU
             return pr.GetPropertyNode(br.ReadInt32());
         }
 
-        //получение типа, описанного в этом модуле (может вызываться извне)
+        //getting a type defined in this module (may be called from outside)
         public type_node GetTypeReference(int offset)
         {
             definition_node dn = null;
             if (members.TryGetValue(offset, out dn))
                 return dn as type_node;
-            //если тип еще не десериализован, то восстанавливаем его
+            //if the type has not been deserialized yet, restore it
             return GetCommonType(offset);
         }
 
@@ -1293,25 +1294,25 @@ namespace PascalABCCompiler.PCU
             return null;
         }
 
-        //получение типа
+        //getting a type
         private type_node GetTypeReference()
         {
             byte b = br.ReadByte();
-            //(ssyy) Вставил switch вместо условий
+            //(ssyy) Replaced conditions with a switch
             type_node tn = null;
             definition_node dn = null;
             switch (b)
             {
                 case 255:
                     return null;
-                case 1://если тип описан в модуле
+                case 1://if the type is defined in the module
                     int offset = br.ReadInt32();
 
                     if (members.TryGetValue(offset, out dn))
                         tn = (type_node)dn;
                     if (tn == null) return GetCommonType(offset);
                     return tn;
-                case 0://если это импортир. тип
+                case 0://if this is an imported type
                     tn = null;
                     int pos = br.ReadInt32();
                     if (ext_members.TryGetValue(pos, out dn))
@@ -1323,20 +1324,20 @@ namespace PascalABCCompiler.PCU
                         tn = ReadCommonExtType();
                         ext_members[pos] = tn;
                     }
-                    else // это нетовский тип
+                    else // this is a .NET type
                     {
                         tn = ReadNetExtType();
                         ext_members[pos] = tn;
                     }
                     br.BaseStream.Seek(tmp, SeekOrigin.Begin);
                     return tn;
-                case 2://это массив
+                case 2://this is an array
                     simple_array type = new simple_array(GetTypeReference(), br.ReadInt32());
                     return type;
-                case 3://это указатель
+                case 3://this is a pointer
                     type_node pointed_type = GetTypeReference();
                     return pointed_type.ref_type;
-                case 4://это динамический массив
+                case 4://this is a dynamic array
                     location loc = null;
                     loc = ReadDebugInfo();
                     type_node elem_type = GetTypeReference();
@@ -1567,9 +1568,9 @@ namespace PascalABCCompiler.PCU
             return attr;
         }
 
-        //восстановление сущности из модуля
-        //вызывается только при поиске имени находится SymbolInfo с заглушкой
-        //эта заглушка должна быть заменена настоящей сущностью
+        //restoring an entity from the module
+        //called only during name lookup when a SymbolInfo with a stub is found
+        //the stub must be replaced with the actual entity
         public override definition_node CreateInterfaceMember(int offset, string name)
         {
             definition_node dn = null;
@@ -1608,8 +1609,8 @@ namespace PascalABCCompiler.PCU
 
             }
             br.BaseStream.Seek(start_pos, SeekOrigin.Begin);
-            PCUWriter.AddExternalMember(dn, offset);//сообщаем врайтеру новое смещение сущности
-            //если будет сериализовываться модуль в котором используются сущности .pcu, он должен знать их смещения
+            PCUWriter.AddExternalMember(dn, offset);//notify the writer of the new entity offset
+            //if a module that uses .pcu entities is to be serialized, it must know their offsets
             //ProcessWaitedToRestoreFields();
             return dn;
         }
@@ -1647,14 +1648,14 @@ namespace PascalABCCompiler.PCU
                     dn = CreateRefType(offset); break;
             }
             br.BaseStream.Seek(start_pos, SeekOrigin.Begin);
-            PCUWriter.AddExternalMember(dn, offset);//сообщаем врайтеру новое смещение сущности
-            //если будет сериализовываться модуль в котором используются сущности .pcu, он должен знать их смещения
+            PCUWriter.AddExternalMember(dn, offset);//notify the writer of the new entity offset
+            //if a module that uses .pcu entities is to be serialized, it must know their offsets
             //ProcessWaitedToRestoreFields();
             return dn;
         }
         //\ssyy
 
-        //восстановление сущности- члена класса
+        //restoring a class member entity
         public override definition_node CreateInterfaceInClassMember(int offset, string name)
         {
             definition_node dn = null;
@@ -1802,7 +1803,7 @@ namespace PascalABCCompiler.PCU
             ref_type_node node = null;
             string name;
             bool is_interface = br.ReadBoolean();
-            if (is_interface)//пропускаем флаг - интерфейсности
+            if (is_interface)//skip the interface flag
             {
                 name = GetString(br.ReadInt32());
             }
@@ -1818,8 +1819,8 @@ namespace PascalABCCompiler.PCU
 
         }
 
-        //все методы с именем на Get вызываются в процессе восстановления других сущностей
-        //например, когда восст. код ф-ии, в нем вызывается другая ф-я, которая еще не восстановлена
+        //all methods whose names begin with Get are called during restoration of other entities
+        //for example, when the body of a function is restored, it may call another function that has not yet been restored
         private common_method_node GetClassMethod(int offset, bool not_restore_code = false)
         {
             definition_node dn = null;
@@ -2087,7 +2088,7 @@ namespace PascalABCCompiler.PCU
             bool is_interface = br.ReadBoolean();
             int ind = br.ReadInt32();
 
-            if (is_interface)//пропускаем флаг - интерфейсности
+            if (is_interface)//skip the interface flag
             {
                 name = GetString(br.ReadInt32());
             }
@@ -2096,15 +2097,15 @@ namespace PascalABCCompiler.PCU
                 name = br.ReadString();
             }
             //br.ReadInt32();
-            //Читаем, является ли тип интерфейсом
+            //Read whether the type is an interface
             bool type_is_interface = (br.ReadByte() == 1);
 
             bool type_is_class = (br.ReadByte() == 1);
 
-            //Читаем, является ли тип делегатом
+            //Read whether the type is a delegate
             bool type_is_delegate = (br.ReadByte() == 1);
 
-            //Читаем, является ли тип описанием дженерика
+            //Read whether the type is a generic type definition
             bool type_is_generic_definition = (br.ReadByte() == 1);
 
             List<SemanticTree.ICommonTypeNode> type_params = null;
@@ -2161,7 +2162,7 @@ namespace PascalABCCompiler.PCU
             SemanticTree.type_access_level tal = (SemanticTree.type_access_level)br.ReadByte();
 
             ctn.SetIsSealed(br.ReadBoolean());
-            ctn.SetIsAbstract(br.ReadBoolean(), null); // Причина null, потому что проблема пересечения sealed и abstract не может произойти после загрузки из .pcu
+            ctn.SetIsAbstract(br.ReadBoolean(), null); // The reason for null is that the conflict between sealed and abstract cannot occur after loading from a .pcu file
             ctn.SetIsStatic(br.ReadBoolean());
             ctn.IsPartial = br.ReadBoolean();
 
@@ -2173,7 +2174,7 @@ namespace PascalABCCompiler.PCU
 
             if (type_is_interface)
             {
-                //Добавляем ссылки на области видимости предков интерфейса
+                //Add references to the scopes of parent interfaces
                 List<SymbolTable.Scope> interf_scopes = new List<SymbolTable.Scope>();
                 foreach (type_node tnode in interf_implemented)
                 {
@@ -2332,12 +2333,12 @@ namespace PascalABCCompiler.PCU
         private template_class GetTemplateClassReference()
         {
             byte b = br.ReadByte();
-            if (b == 1)//если тип описан в модуле
+            if (b == 1)//if the type is defined in the module
             {
                 int offset = br.ReadInt32();
                 return GetTemplateClass(offset);
             }
-            if (b == 0)//если это импортир. тип
+            if (b == 0)//if this is an imported type
             {
                 template_class tc = null;
                 int pos = br.ReadInt32();
@@ -2351,7 +2352,7 @@ namespace PascalABCCompiler.PCU
                     tc = ReadTemplateExtClass();
                     ext_members[pos] = tc;
                 }
-                else // это нетовский тип
+                else // this is a .NET type
                 {
                     return null;
                 }
@@ -2409,10 +2410,10 @@ namespace PascalABCCompiler.PCU
                 pdi_list.Add(new procedure_definition_info(c_m_n, p_d));
             }
 
-            //(ssyy) Далее формируем список областей видимости, которые
-            //подключаются к модулю. Вообще-то шаблоны классов этим
-            //заниматься не должны, но кроме них этот список
-            //никому не нужен (по состоянию на 01.06.2007).
+            //(ssyy) Next we build the list of scopes that are
+            //connected to the module. Strictly speaking, template classes
+            //should not be responsible for this, but apart from them
+            //nobody else needs this list (as of 01.06.2007).
             if (cun.scope.TopScopeArray.Length == 0)
             {
                 cun.scope.TopScopeArray = MakeTopScopeArray(unl, pcu_file.interface_uses_count);
@@ -2420,7 +2421,7 @@ namespace PascalABCCompiler.PCU
 
             if (cun.implementation_scope.TopScopeArray.Length == 0 && unl2 != null)
             {
-                //формируем implementation - область
+                //build the implementation scope
                 cun.implementation_scope.TopScopeArray = MakeTopScopeArray(unl2, pcu_file.incl_modules.Length);
             }
 
@@ -2485,15 +2486,15 @@ namespace PascalABCCompiler.PCU
         {
             List<SymbolTable.Scope> top_scopes = new List<SymbolTable.Scope>();
 
-            //Добавляем внутренний системный модуль
+            //Add the internal system module
             top_scopes.Add(SystemLibrary.SystemLibrary.system_unit.scope);
 
-            //Добавляем .NET - пространство
+            //Add the .NET namespace
             System.Reflection.Assembly _as = typeof(string).Assembly;
             NetHelper.NetScope ns = new NetHelper.NetScope(unl, _as, SystemLibrary.SystemLibrary.symtab);
             top_scopes.Add(ns);
 
-            //Добавляем подключенные модули
+            //Add the connected modules
             for (int i = 0; i < uses_count; i++)
             {
                 if (units.TryGetValue(GetFullUnitName(pcu_file.incl_modules[i],
@@ -2503,7 +2504,7 @@ namespace PascalABCCompiler.PCU
                 }
             }
 
-            //Добавляем внутренний системный модуль
+            //Add the internal system module
             //top_scopes.Add(SystemLibrary.SystemLibrary.system_unit.scope);
 
             return top_scopes.ToArray();
@@ -2569,14 +2570,14 @@ namespace PascalABCCompiler.PCU
 
         private void RestoreAllFields(common_type_node ctn)
         {
-            //восстанавливаем все методы
+            //restore all methods
             string[] mnames = class_names[ctn];
             WrappedClassScope wcs = ctn.scope as WrappedClassScope;
             foreach (string mname in mnames)
                 wcs.RestoreMembers(mname);
         }
 
-        //добавление в таблицу символов имена членов класса
+        //add the names of class members to the symbol table
         private string[] AddClassMemberNames(WrappedClassScope scope)
         {
             int num = br.ReadInt32();
@@ -2593,7 +2594,7 @@ namespace PascalABCCompiler.PCU
                 si.semantic_node_type = (semantic_node_type)br.ReadByte();
                 si.always_restore = br.ReadBoolean();
                 si.is_static = br.ReadBoolean();
-                //Вроде это ненужно
+                //This seems unnecessary
                 //SymbolInfo si2 = scope.FindWithoutCreation(name);
                 //si.Next = si2;
                 scope.AddSymbol(name, si);
@@ -2612,7 +2613,7 @@ namespace PascalABCCompiler.PCU
             //br.ReadBoolean();
             //br.ReadInt32();
             bool is_interface = br.ReadBoolean();
-            if (is_interface)//пропускаем флаг - интерфейсности
+            if (is_interface)//skip the interface flag
             {
                 br.ReadInt32();
             }
@@ -2664,7 +2665,7 @@ namespace PascalABCCompiler.PCU
             br.ReadByte();
             string name;
             bool is_interface = br.ReadBoolean();
-            if (is_interface)//пропускаем флаг - интерфейсности
+            if (is_interface)//skip the interface flag
             {
                 name = GetString(br.ReadInt32());
             }
@@ -2732,7 +2733,7 @@ namespace PascalABCCompiler.PCU
             int ind = br.ReadInt32();
             string name;
             bool is_interface = br.ReadBoolean();
-            if (is_interface)//пропускаем флаг - интерфейсности
+            if (is_interface)//skip the interface flag
             {
                 name = GetString(br.ReadInt32());
             }
@@ -2896,7 +2897,7 @@ namespace PascalABCCompiler.PCU
             /*if (CanReadObject())
                 ConnectedToType = GetTypeReference();*/
             bool is_interface = br.ReadBoolean();
-            if (is_interface)//пропускаем флаг - интерфейсности
+            if (is_interface)//skip the interface flag
             {
                 name = GetString(br.ReadInt32());
             }
@@ -3004,7 +3005,7 @@ namespace PascalABCCompiler.PCU
             br.ReadByte();
             string name;
             bool is_interface = br.ReadBoolean();
-            if (is_interface)//пропускаем флаг - интерфейсности
+            if (is_interface)//skip the interface flag
             {
                 name = GetString(br.ReadInt32());
             }
@@ -3016,8 +3017,8 @@ namespace PascalABCCompiler.PCU
             type_node cnst_type = GetTypeReference();
             constant_node en = (constant_node)CreateExpressionWithOffset();
 
-            // SSM 10.03.26 Вклиниваемся сюда и подменяем значение константы __PascalABCDir.
-            // Для стандартных модулей, откомпилированных в pcu, это всё равно работать не будет
+            // SSM 10.03.26 Intercepting here to substitute the value of the __PascalABCDir constant.
+            // For standard modules compiled to pcu, this will not work anyway
             /*if (name == "__PascalABCDir")
             {
                 var value = System.AppDomain.CurrentDomain.BaseDirectory;
@@ -3742,7 +3743,7 @@ namespace PascalABCCompiler.PCU
             return new enum_const_node(br.ReadInt32(), GetTypeReference(), null);
         }
 
-        //считывание константы nil
+        //reading the nil constant
         private expression_node CreateNullConstNode()
         {
             bool has_type = br.ReadByte() == 1;
@@ -3826,7 +3827,7 @@ namespace PascalABCCompiler.PCU
             //ssyy moved up
             common_constructor_call cmc = new common_constructor_call(meth, null);
             //\ssyy
-            //ssyy добавил
+            //ssyy added
             cmc._new_obj_awaited = (br.ReadByte() == 1);
             //\ssyy
             int num = br.ReadInt32();
@@ -4182,7 +4183,7 @@ namespace PascalABCCompiler.PCU
             return null;
         }
 
-        //(ssyy) Получение конструктора аргумента generic-типа
+        //(ssyy) Getting the constructor of a generic type argument
         private common_method_node GetGenericParamConstructor()
         {
             //br.ReadByte();
@@ -4190,10 +4191,10 @@ namespace PascalABCCompiler.PCU
             return cnode.methods[0];
         }
 
-        //(ssyy) Получение метода инстанции generic-типа
+        //(ssyy) Getting a method of a generic type instance
         private common_method_node GetGenericInstanceMethod()
         {
-            br.ReadByte(); //Пропускаем знак инстанции generic-типа
+            br.ReadByte(); //Skip the generic type instance marker
             function_node fn;
             generic_instance_type_node gitn = GetGenericInstance();
             if (gitn is compiled_generic_instance_type_node)
@@ -4209,34 +4210,34 @@ namespace PascalABCCompiler.PCU
 
         private common_method_node GetGenericInstanceConstructor()
         {
-            br.ReadByte(); //Пропускаем знак инстанции generic-типа
+            br.ReadByte(); //Skip the generic type instance marker
             generic_instance_type_node gitn = GetGenericInstance();
             compiled_constructor_node ccn = GetCompiledConstructor(br.ReadInt32());
             return gitn.ConvertMember(ccn) as common_method_node;
         }
 
-        //(ssyy) Получение метода инстанции шаблона
+        //(ssyy) Getting a method of a template instance
         private common_method_node GetTemplateInstanceMethod()
         {
-            br.ReadByte(); //Пропускаем знак инстанции шаблона
+            br.ReadByte(); //Skip the template instance marker
             common_type_node ctnode = GetTemplateInstance();
             int meth_num = br.ReadInt32();
             return ctnode.methods[meth_num];
         }
 
-        //(ssyy) Получение поля инстанции шаблона
+        //(ssyy) Getting a field of a template instance
         private class_field GetTemplateInstanceField()
         {
-            br.ReadByte(); //Пропускаем знак инстанции шаблона
+            br.ReadByte(); //Skip the template instance marker
             common_type_node ctnode = GetTemplateInstance();
             int field_num = br.ReadInt32();
             return ctnode.fields[field_num];
         }
 
-        //(ssyy) Получение поля инстанции generic-типа
+        //(ssyy) Getting a field of a generic type instance
         private class_field GetGenericInstanceField()
         {
-            br.ReadByte(); //Пропускаем знак инстанции шаблона
+            br.ReadByte(); //Skip the template instance marker
             var_definition_node ccn;
             generic_instance_type_node gitn = GetGenericInstance();
             if (gitn is compiled_generic_instance_type_node)
@@ -4250,10 +4251,10 @@ namespace PascalABCCompiler.PCU
             return gitn.ConvertMember(ccn) as class_field;
         }
 
-        //(ssyy) Получение метода инстанции generic-типа
+        //(ssyy) Getting a property of a generic type instance
         private common_property_node GetGenericInstanceProperty()
         {
-            br.ReadByte(); //Пропускаем знак инстанции generic-типа
+            br.ReadByte(); //Skip the generic type instance marker
             property_node pn;
             generic_instance_type_node gitn = GetGenericInstance();
             if (gitn is compiled_generic_instance_type_node)
@@ -4267,10 +4268,10 @@ namespace PascalABCCompiler.PCU
             return gitn.ConvertMember(pn) as common_property_node;
         }
 
-        //(ssyy) Получение свойства инстанции шаблона
+        //(ssyy) Getting a property of a template instance
         private common_property_node GetTemplateInstanceProperty()
         {
-            br.ReadByte(); //Пропускаем знак инстанции шаблона
+            br.ReadByte(); //Skip the template instance marker
             common_type_node ctnode = GetTemplateInstance();
             int prop_num = br.ReadInt32();
             return ctnode.properties[prop_num];
@@ -4509,7 +4510,7 @@ namespace PascalABCCompiler.PCU
         {
             compiled_constructor_node ccn = GetCompiledConstructor(br.ReadInt32());
             compiled_constructor_call ccc = new compiled_constructor_call(ccn, null);
-            //ssyy добавил
+            //ssyy added
             ccc._new_obj_awaited = (br.ReadByte() == 1);
             //\ssyy
             int num_params = br.ReadInt32();

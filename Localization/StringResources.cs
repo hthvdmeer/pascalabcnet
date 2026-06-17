@@ -561,8 +561,7 @@ namespace PascalABCCompiler
         {
             if (!File.Exists(FileName))
                 return;
-            //    throw new
-            LoadFile(new StreamReader(FileName, System.Text.Encoding.GetEncoding(1251)));
+            LoadFile(new StreamReader(FileName, Encoding.UTF8));
         }
         private static void LoadFile(StreamReader sr)
         {
@@ -600,11 +599,8 @@ namespace PascalABCCompiler
         }
         static StringResources()
         {
-            //TODO: сделать так чтобы язык поумолчанию был в ресурсе
-            /*StringResourcesLanguage.ConfigFileName = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().ManifestModule.FullyQualifiedName) + "\\lng\\languages.dat";
-            if (StringResourcesLanguage.AccessibleLanguages.Count > 0)
-                StringResourcesLanguage.CurrentLanguageName = StringResourcesLanguage.AccessibleLanguages[0];
-             */
+            // Ensure Windows code pages (like 1251) are available on .NET Core/.NET 5+
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
             if (Strings.Count == 0)
             {
                 ResourceManager ResourceManager = new ResourceManager("PascalABCCompiler.DefaultLang", System.Reflection.Assembly.GetExecutingAssembly());

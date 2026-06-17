@@ -51,15 +51,15 @@ namespace PascalABCCompiler.TreeRealization
     }
 
     /// <summary>
-    /// Делегат, который вызывается при создании узла вызова метода. Если результат не null, то вместо узла вызова метода в дерево попадает возвращаемое этим длегатом значение. Таким образом он позволяет вычислять значения функции во время компиляции.
+    /// Delegate invoked when a method call node is created. If the result is not null, the value returned by this delegate is placed in the tree instead of the method call node. This allows computing function values at compile time.
     /// </summary>
-    /// <param name="call_location">Место вызова метода.</param>
-    /// <param name="parameters">Список параметровю</param>
-    /// <returns>Если значение функции с этими параметрами может быть вычислено во время компиляции. null иначе.</returns>
+    /// <param name="call_location">Location of the method call.</param>
+    /// <param name="parameters">List of parameters.</param>
+    /// <returns>The value of the function for these parameters if it can be computed at compile time; null otherwise.</returns>
     public delegate expression_node compile_time_executor(location call_location,params expression_node[] parameters);
 
     /// <summary>
-    /// Базовый класс для описания функций.
+    /// Base class for describing functions.
     /// </summary>
 	[Serializable]
 	public abstract class function_node : definition_node, SemanticTree.IFunctionNode
@@ -177,7 +177,7 @@ namespace PascalABCCompiler.TreeRealization
             }
         }
 
-        //ограничения на generic-параметры
+        //constraints on generic parameters
         public virtual List<generic_parameter_eliminations> parameters_eliminations
         {
             get
@@ -273,7 +273,7 @@ namespace PascalABCCompiler.TreeRealization
         }
 
         /// <summary>
-        /// Делегат, который вызывается при создании узла вызова метода. Если результат не null, то вместо узла вызова метода в дерево попадает возвращаемое этим длегатом значение. Таким образом он позволяет вычислять значения функции во время компиляции.
+        /// Delegate invoked when a method call node is created. If the result is not null, the value returned by this delegate is placed in the tree instead of the method call node. This allows computing function values at compile time.
         /// </summary>
         public compile_time_executor compile_time_executor
         {
@@ -297,9 +297,9 @@ namespace PascalABCCompiler.TreeRealization
         }
 
         /// <summary>
-        /// Конструктор узла.
+        /// Node constructor.
         /// </summary>
-        /// <param name="ret_type">Тип возвращаемого значения функции.</param>
+        /// <param name="ret_type">The return value type of the function.</param>
 		public function_node(type_node ret_type)
 		{
 			_ret_type=ret_type;
@@ -313,7 +313,7 @@ namespace PascalABCCompiler.TreeRealization
         }
         */
         /// <summary>
-        /// Вид узла - базовый (basic), обычный (common) или экспортируемый (compiled).
+        /// Node kind - basic, common, or compiled (exported).
         /// </summary>
 		public abstract SemanticTree.node_kind node_kind
 		{
@@ -321,7 +321,7 @@ namespace PascalABCCompiler.TreeRealization
 		}
 
 		/// <summary>
-        /// Список формальных параметров функции.
+        /// List of formal parameters of the function.
 		/// </summary>
 		public parameter_list parameters
 		{
@@ -332,7 +332,7 @@ namespace PascalABCCompiler.TreeRealization
 		}
 
         /// <summary>
-        /// Тип возвращаемого значения функции.
+        /// Return value type of the function.
         /// </summary>
 		public type_node return_value_type
 		{
@@ -347,14 +347,14 @@ namespace PascalABCCompiler.TreeRealization
 		}
 
         /// <summary>
-        /// Имя функции.
+        /// Function name.
         /// </summary>
 		public abstract string name
 		{
 			get;
 		}
 
-        //TODO: Может is_overload оставить только в информации связанной с common_function_node.
+        //TODO: Maybe keep is_overload only in the information associated with common_function_node.
 		/*
         public abstract bool is_overload
 		{
@@ -363,7 +363,7 @@ namespace PascalABCCompiler.TreeRealization
         */
 
         /// <summary>
-        /// Расположение узла - в пространстве имен, классе или функции.
+        /// Node location - in a namespace, class, or function.
         /// </summary>
 		public abstract SemanticTree.node_location_kind node_location_kind
 		{
@@ -371,7 +371,7 @@ namespace PascalABCCompiler.TreeRealization
 		}
 
         /// <summary>
-        /// Обобщенный тип узла.
+        /// General node type.
         /// </summary>
 		public override general_node_type general_node_type
 		{
@@ -382,16 +382,16 @@ namespace PascalABCCompiler.TreeRealization
 		}
 
         /// <summary>
-        /// Метод для обхода дерева посетителем.
+        /// Method for traversing the tree with a visitor.
         /// </summary>
-        /// <param name="visitor">Класс - посетитель дерева.</param>
+        /// <param name="visitor">The tree visitor class.</param>
 		public override void visit(SemanticTree.ISemanticVisitor visitor)
 		{
 			visitor.visit(this);
 		}
 
         /// <summary>
-        /// Тип возвращаеого значения.
+        /// Return value type.
         /// </summary>
 		SemanticTree.ITypeNode SemanticTree.IFunctionNode.return_value_type
 		{
@@ -402,7 +402,7 @@ namespace PascalABCCompiler.TreeRealization
 		}
 
         /// <summary>
-        /// Список формальных параметров функции.
+        /// List of formal parameters of the function.
         /// </summary>
 		SemanticTree.IParameterNode[] SemanticTree.IFunctionNode.parameters
 		{
@@ -469,7 +469,7 @@ namespace PascalABCCompiler.TreeRealization
     public enum special_operation_kind { none, assign };
 
     /// <summary>
-    /// Класс, базовый, нигде не определенный метод, например операцию сложения двух целых чисел.
+    /// A basic, nowhere-defined method — for example, the addition of two integers.
     /// </summary>
 	[Serializable]
 	public class basic_function_node : function_node, SemanticTree.IBasicFunctionNode
@@ -483,11 +483,11 @@ namespace PascalABCCompiler.TreeRealization
         private special_operation_kind _operation_kind = special_operation_kind.none;
 
         /// <summary>
-        /// Конструктор узла.
+        /// Node constructor.
         /// </summary>
-        /// <param name="bft">Тип базовой функции.</param>
-        /// <param name="ret_type">Тип возвращаемого значения.</param>
-        /// <param name="is_overload">Перегружена-ли функция.</param>
+        /// <param name="bft">The basic function type.</param>
+        /// <param name="ret_type">The return value type.</param>
+        /// <param name="is_overload">Whether the function is overloaded.</param>
 		public basic_function_node(SemanticTree.basic_function_type bft,type_node ret_type,
             bool is_overload) :
 			base(ret_type)
@@ -497,12 +497,12 @@ namespace PascalABCCompiler.TreeRealization
 		}
 
         /// <summary>
-        /// Конструктор узла.
+        /// Node constructor.
         /// </summary>
-        /// <param name="bft">Тип базовой функции.</param>
-        /// <param name="ret_type">Тип возвращаемого значения.</param>
-        /// <param name="is_overload">Перегружена-ли функция.</param>
-        /// <param name="name">Имя</param>
+        /// <param name="bft">The basic function type.</param>
+        /// <param name="ret_type">The return value type.</param>
+        /// <param name="is_overload">Whether the function is overloaded.</param>
+        /// <param name="name">Name</param>
         public basic_function_node(SemanticTree.basic_function_type bft, type_node ret_type,
             bool is_overload, string name)
             :
@@ -514,7 +514,7 @@ namespace PascalABCCompiler.TreeRealization
         }
 
         /// <summary>
-        /// Какая именно это базовая функция.
+        /// The specific basic function this represents.
         /// </summary>
 		public SemanticTree.basic_function_type basic_function_type
 		{
@@ -537,7 +537,7 @@ namespace PascalABCCompiler.TreeRealization
         }
 
         /// <summary>
-        /// Имя функции.
+        /// Function name.
         /// </summary>
 		public override string name
 		{
@@ -554,7 +554,7 @@ namespace PascalABCCompiler.TreeRealization
             _name = name;
         }
 
-        //TODO: Нужно ли is_overload для basic_function_node?
+        //TODO: Is is_overload needed for basic_function_node?
 		public bool is_overload
 		{
 			get
@@ -570,7 +570,7 @@ namespace PascalABCCompiler.TreeRealization
 		}
 
         /// <summary>
-        /// Расположение узла - в пространстве имен, классе или функции.
+        /// Node location - in a namespace, class, or function.
         /// </summary>
 		public override SemanticTree.node_location_kind node_location_kind
 		{
@@ -581,7 +581,7 @@ namespace PascalABCCompiler.TreeRealization
 		}
 
         /// <summary>
-        /// Вид узла - обычный, базовый или откомпилированный.
+        /// Node kind - common, basic, or compiled.
         /// </summary>
 		public override SemanticTree.node_kind node_kind
 		{
@@ -592,7 +592,7 @@ namespace PascalABCCompiler.TreeRealization
 		}
 
         /// <summary>
-        /// Тип узла.
+        /// Node type.
         /// </summary>
 		public override semantic_node_type semantic_node_type
 		{
@@ -603,9 +603,9 @@ namespace PascalABCCompiler.TreeRealization
 		}
 
         /// <summary>
-        /// Метод для обхода дерева посетителем.
+        /// Method for traversing the tree with a visitor.
         /// </summary>
-        /// <param name="visitor">Класс - посетитель дерева.</param>
+        /// <param name="visitor">The tree visitor class.</param>
 		public override void visit(SemanticTree.ISemanticVisitor visitor)
 		{
 			visitor.visit(this);
@@ -613,7 +613,7 @@ namespace PascalABCCompiler.TreeRealization
 	}
 
     /// <summary>
-    /// Обычная, определенная пользователем функция.
+    /// An ordinary, user-defined function.
     /// </summary>
 	[Serializable]
 	public abstract class common_function_node : function_node, SemanticTree.ICommonFunctionNode
@@ -634,25 +634,25 @@ namespace PascalABCCompiler.TreeRealization
             set { specialFunctionKind = value; }
         }
 
-        //TODO: Возможно вынести в ассоциированную с функцией информацию.
-		//Только указание - какая переменная возвращается. Ссылка на эту-же переменную есть в _var_defs.
+        //TODO: Possibly move to information associated with the function.
+		//Only an indication of which variable is returned. A reference to the same variable is in _var_defs.
 		private local_variable _return_variable;
 
         private readonly common_in_function_function_node_list _fnl = new common_in_function_function_node_list();
 		private statement_node _function_code;
 
-        //TODO: Возможно вынести оба этих поля в ассоциированную с функцией информацию.
+        //TODO: Possibly move both of these fields to information associated with the function.
 		private bool _overload = false;
 		private bool _is_forward = false;
 
-        //TODO: Вынести в ассоциированную с функцией информацию.
+        //TODO: Move to information associated with the function.
 		private statement_node_stack _cycles_stack = new statement_node_stack();
 
 		private SymbolTable.Scope _scope;
 
 		private location _loc;
 
-        //TODO: Возможно вынести оба этих поля в ассоциированную с функцией информацию.
+        //TODO: Possibly move both of these fields to information associated with the function.
 		private int _num_of_default_variables;
 		private int _num_of_for_cycles;
 
@@ -718,11 +718,11 @@ namespace PascalABCCompiler.TreeRealization
         }
 
         /// <summary>
-        /// Конструктор узла.
+        /// Node constructor.
         /// </summary>
-        /// <param name="name">Имя функции.</param>
-        /// <param name="loc">Расположение функции.</param>
-        /// <param name="scope">Пространство имен этой функции.</param>
+        /// <param name="name">Function name.</param>
+        /// <param name="loc">Function location.</param>
+        /// <param name="scope">The namespace of this function.</param>
         public common_function_node(string name, location loc,SymbolTable.Scope scope)
         {
             _name = name;
@@ -731,12 +731,12 @@ namespace PascalABCCompiler.TreeRealization
         }
 
         /// <summary>
-        /// Конструктор узла.
+        /// Node constructor.
         /// </summary>
-        /// <param name="name">Имя функции.</param>
-        /// <param name="ret_type">Тип возвращаемого значения функции.</param>
-        /// <param name="loc">Расположение функции.</param>
-        /// <param name="scope">Пространство имен этой функции.</param>
+        /// <param name="name">Function name.</param>
+        /// <param name="ret_type">The return value type of the function.</param>
+        /// <param name="loc">Function location.</param>
+        /// <param name="scope">The namespace of this function.</param>
 		public common_function_node(string name,type_node ret_type,location loc, SymbolTable.Scope scope) :
 			base(ret_type)
 		{
@@ -746,7 +746,7 @@ namespace PascalABCCompiler.TreeRealization
 		}
 
         /// <summary>
-        /// Число циклов for в функции. Временно хранится здесь. Будет удалено.
+        /// Number of for loops in the function. Temporarily stored here. Will be removed.
         /// </summary>
 		public int num_of_for_cycles
 		{
@@ -768,7 +768,7 @@ namespace PascalABCCompiler.TreeRealization
         */
 
         /// <summary>
-        /// Стек циклов. Временно хранится здесь. Будет удален. Используется для реализации break и continue.
+        /// Loop stack. Temporarily stored here. Will be removed. Used for implementing break and continue.
         /// </summary>
 		public statement_node_stack cycles_stack
 		{
@@ -779,7 +779,7 @@ namespace PascalABCCompiler.TreeRealization
 		}
 
         /// <summary>
-        /// Является ли это предописанием функции. Скорее всего будет удалено.
+        /// Whether this is a forward declaration of the function. Most likely will be removed.
         /// </summary>
 		public bool is_forward
 		{
@@ -794,7 +794,7 @@ namespace PascalABCCompiler.TreeRealization
 		}
 
         /// <summary>
-        /// Список констант определенных в функции.
+        /// List of constants defined in the function.
         /// </summary>
         public function_constant_definition_list constants
         {
@@ -805,27 +805,27 @@ namespace PascalABCCompiler.TreeRealization
         }
 
         /// <summary>
-        /// Поиск символа в функции. Осуществляет поиск и в объемлющих пространствах имен.
+        /// Looks up a symbol in the function. Searches in enclosing namespaces as well.
         /// </summary>
-        /// <param name="name">Имя символа.</param>
-        /// <returns>Информация о найленном символе. null, если ни чего не найдено.</returns>
+        /// <param name="name">Symbol name.</param>
+        /// <returns>Information about the found symbol. null if nothing was found.</returns>
         public List<TreeConverter.SymbolInfo> find(string name, SymbolTable.Scope CurrentScope)
         {
             return _scope.Find(name, CurrentScope);
         }
 
         /// <summary>
-        /// Поиск символа в функции. Осуществляет поиск только в пространстве имен функции. Используется для обнаружения повторного определения символа в пространстве имен.
+        /// Looks up a symbol in the function. Searches only within the function's own namespace. Used for detecting duplicate symbol definitions in the namespace.
         /// </summary>
-        /// <param name="name">Имя символа.</param>
-        /// <returns>Информация о найленном символе. null, если ни чего не найдено.</returns>
+        /// <param name="name">Symbol name.</param>
+        /// <returns>Information about the found symbol. null if nothing was found.</returns>
         //public PascalABCCompiler.TreeConverter.SymbolInfo find_only_in_namespace(string name)
         //{
          //   return _scope.FindOnlyInScopeAndBlocks(name);
         //}
 
         /// <summary>
-        /// Пространство имен функции.
+        /// The function's namespace.
         /// </summary>
 		public SymbolTable.Scope scope
 		{
@@ -833,7 +833,7 @@ namespace PascalABCCompiler.TreeRealization
 			{
 				return _scope;
 			}
-            //TODO: Может хоть это закрыть.
+            //TODO: Maybe at least make this private.
 			set
 			{
 				_scope=value;

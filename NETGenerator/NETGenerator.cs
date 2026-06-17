@@ -123,49 +123,49 @@ namespace PascalABCCompiler.NETGenerator
     }
 
     /// <summary>
-    /// Класс, переводящий сем. дерево в сборку .NET
+    /// Class that converts the semantic tree to a .NET assembly
     /// </summary>
     public class ILConverter : AbstractVisitor
     {
-        protected AppDomain ad;//домен приложения (в нем будет генерироваться сборка)
-        protected AssemblyName an;//имя сборки
-        protected AssemblyBuilder ab;//билдер для сборки
-        protected ModuleBuilder mb;//билдер для модуля
-        protected TypeBuilder entry_type;//тип-обертка над осн. программой
-        protected TypeBuilder cur_type;//текущий компилируемый тип
-        protected MethodBuilder entry_meth;//входная точка в приложение
-        protected MethodBuilder cur_meth;//текущий билдер для метода
+        protected AppDomain ad;//application domain (the assembly will be generated in it)
+        protected AssemblyName an;//assembly name
+        protected AssemblyBuilder ab;//assembly builder
+        protected ModuleBuilder mb;//module builder
+        protected TypeBuilder entry_type;//wrapper type for the main program
+        protected TypeBuilder cur_type;//currently compiled type
+        protected MethodBuilder entry_meth;//application entry point
+        protected MethodBuilder cur_meth;//current method builder
         protected MethodBuilder init_variables_mb;
-        protected ILGenerator il;//стандартный класс для генерации IL-кода
-        protected ISymbolDocumentWriter doc;//класс для генерации отладочной информации
-        protected ISymbolDocumentWriter first_doc;//класс для генерации отладочной информации
-        protected Stack<Label> labels = new Stack<Label>();//стек меток для break
-        protected Stack<Label> clabels = new Stack<Label>();//стек меток для continue
-        protected Stack<MethInfo> smi = new Stack<MethInfo>();//стек вложенных функций
-        protected Helper helper = new Helper();//привязывает классы сем. дерева к нетовским билдерам
-        protected int num_scope = 0;//уровень вложенности
-        protected List<TypeBuilder> types = new List<TypeBuilder>();//список закрытия типов
-        protected List<TypeBuilder> value_types = new List<TypeBuilder>();//список закрытия размерных типов (треб. особый порядок)
-        protected int uid = 1;//счетчик для задания уникальных имен (исп. при именовании классов-оболочек над влож. ф-ми)
+        protected ILGenerator il;//standard class for generating IL code
+        protected ISymbolDocumentWriter doc;//class for generating debug information
+        protected ISymbolDocumentWriter first_doc;//class for generating debug information
+        protected Stack<Label> labels = new Stack<Label>();//label stack for break
+        protected Stack<Label> clabels = new Stack<Label>();//label stack for continue
+        protected Stack<MethInfo> smi = new Stack<MethInfo>();//nested functions stack
+        protected Helper helper = new Helper();//binds semantic tree classes to .NET builders
+        protected int num_scope = 0;//nesting level
+        protected List<TypeBuilder> types = new List<TypeBuilder>();//list of types to close
+        protected List<TypeBuilder> value_types = new List<TypeBuilder>();//list of value types to close (requires special ordering)
+        protected int uid = 1;//counter for generating unique names (used when naming wrapper classes for nested functions)
         protected List<ICommonFunctionNode> funcs = new List<ICommonFunctionNode>();//
-        protected bool is_addr = false;//флаг, передается ли значение как факт. var-параметр
+        protected bool is_addr = false;//flag: whether the value is passed as an actual var-parameter
         protected bool copy_string = false;
-        protected string cur_unit;//имя текущего модуля
-        protected ConstructorBuilder cur_cnstr;//текущий конструктор - тоже нужен (ssyy)
-        protected bool is_dot_expr = false;//флаг, стоит ли после выражения точка (нужно для упаковки размерных типов)
+        protected string cur_unit;//name of the current module
+        protected ConstructorBuilder cur_cnstr;//current constructor - also needed (ssyy)
+        protected bool is_dot_expr = false;//flag: whether a dot follows the expression (needed for boxing value types)
         protected bool is_field_reference = false;
-        protected TypeInfo cur_ti;//текущий клас
-        protected CompilerOptions comp_opt = new CompilerOptions();//опции компилятора
-        protected Dictionary<string, ISymbolDocumentWriter> sym_docs = new Dictionary<string, ISymbolDocumentWriter>();//таблица отладочных документов
-        protected bool is_constructor = false;//флаг, переводим ли мы конструктор
+        protected TypeInfo cur_ti;//current class
+        protected CompilerOptions comp_opt = new CompilerOptions();//compiler options
+        protected Dictionary<string, ISymbolDocumentWriter> sym_docs = new Dictionary<string, ISymbolDocumentWriter>();//debug document table
+        protected bool is_constructor = false;//flag: whether we are converting a constructor
         protected bool init_call_awaited = false;
         protected bool save_debug_info = false;
         protected ILocation next_location;
         protected bool add_special_debug_variables = false;
         protected bool make_next_spoint = true;
         protected SemanticTree.ILocation EntryPointLocation;
-        protected Label ExitLabel;//метка для выхода из процедуры
-        protected bool ExitProcedureCall = false; //признак того, что встретилась exit и надо пометить конец процедуры
+        protected Label ExitLabel;//label for exiting a procedure
+        protected bool ExitProcedureCall = false; //indicates that an exit statement was encountered and the end of the procedure must be marked
         protected Dictionary<IConstantNode, FieldBuilder> ConvertedConstants = new Dictionary<IConstantNode, FieldBuilder>();
         //ivan
         protected List<EnumBuilder> enums = new List<EnumBuilder>();
@@ -173,7 +173,7 @@ namespace PascalABCCompiler.NETGenerator
         protected TypeBuilder cur_unit_type;
         private Dictionary<IFunctionNode, IFunctionNode> prop_accessors = new Dictionary<IFunctionNode, IFunctionNode>();
         //ssyy
-        private const int num_try_save = 10; //Кол-во попыток сохранения
+        private const int num_try_save = 10; //Number of save attempts
         private ICommonTypeNode converting_generic_param = null;
         private Dictionary<ICommonFunctionNode, List<IGenericTypeInstance>> instances_in_functions =
             new Dictionary<ICommonFunctionNode, List<IGenericTypeInstance>>();
@@ -201,7 +201,7 @@ namespace PascalABCCompiler.NETGenerator
                     temp_doc = sym_docs[Location.file_name];
                 }
                 else
-                if (save_debug_info) // иногда вызывается MarkSequencePoint при save_debug_info = false
+                if (save_debug_info) // MarkSequencePoint is sometimes called when save_debug_info = false
                 {
                     temp_doc = mb.DefineDocument(Location.file_name, SymDocumentType.Text, SymLanguageType.Pascal, SymLanguageVendor.Microsoft);
                     sym_docs.Add(Location.file_name, temp_doc);
@@ -446,7 +446,7 @@ namespace PascalABCCompiler.NETGenerator
             if (func == null)
                 return;
             List<IGenericTypeInstance> instances;
-            //if (func == null) // SSM 3.07.16 Это решает проблему с оставшимся после перевода в сем. дерево узлом IEnumerable<UnknownType>, но очень грубо - пробую найти ошибку раньше
+            //if (func == null) // SSM 3.07.16 This fixes the problem with an IEnumerable<UnknownType> node left over after conversion to the semantic tree, but very crudely — trying to catch the error earlier
             //    return;
             bool found = instances_in_functions.TryGetValue(func, out instances);
             if (!found)
@@ -680,7 +680,7 @@ namespace PascalABCCompiler.NETGenerator
             }
         }
 
-        //Метод, переводящий семантическое дерево в сборку .NET
+        //Method that converts the semantic tree to a .NET assembly
         public void ConvertFromTree(SemanticTree.IProgramNode p, string TargetFileName, string SourceFileName, CompilerOptions options, string[] ResourceFiles)
         {
             //SystemLibrary.SystemLibInitializer.RestoreStandardFunctions();
@@ -688,14 +688,14 @@ namespace PascalABCCompiler.NETGenerator
             var onlyfname = System.IO.Path.GetFileName(fname);
             comp_opt = options;
             ad = AppDomain.CurrentDomain;
-            an = new AssemblyName(); //создаем имя сборки
+            an = new AssemblyName(); //create assembly name
             an.Version = new Version("1.0.0.0");
             string dir = Directory.GetCurrentDirectory();
             string orig_dir = null;
             string dotnet_publish_dir = null;
             string source_name = fname;//p.Location.document.file_name;
             int pos = source_name.LastIndexOf(Path.DirectorySeparatorChar);
-            if (pos != -1) //если имя файла указано с путем, то выделяем
+            if (pos != -1) //if the file name includes a path, extract it
             {
                 dir = source_name.Substring(0, pos + 1);
                 source_name = source_name.Substring(pos + 1);
@@ -749,7 +749,7 @@ namespace PascalABCCompiler.NETGenerator
             add_special_debug_variables = comp_opt.dbg_attrs == DebugAttributes.ForDebugging;
 
             //bool emit_sym = true;
-            if (save_debug_info) //если модуль отладочный, то устанавливаем атрибут, запрещающий inline методов
+            if (save_debug_info) //if the module is debug, set the attribute that disables method inlining
                 ab.SetCustomAttribute(TypeFactory.DebuggableAttributeCtor, new byte[] { 0x01, 0x00, 0x01, 0x01, 0x00, 0x00 });
 
             if (!IsDotnet5() && !IsDotnetNative() && (comp_opt.target == TargetType.Exe || comp_opt.target == TargetType.WinExe))
@@ -761,11 +761,11 @@ namespace PascalABCCompiler.NETGenerator
             string entry_cur_unit = cur_unit;
             // SSM 07.02.20
             if (comp_opt.target != TargetType.Dll)
-                entry_type = mb.DefineType(cur_unit + ".Program", TypeAttributes.Public);//определяем синтетический статический класс основной программы
+                entry_type = mb.DefineType(cur_unit + ".Program", TypeAttributes.Public);//define the synthetic static class for the main program
             // SSM 07.02.20
             if (entry_type != null)
                 cur_type = entry_type;
-            //точка входа в приложение
+            //application entry point
             if (p.main_function != null)
             {
                 ConvertFunctionHeader(p.main_function);
@@ -778,11 +778,11 @@ namespace PascalABCCompiler.NETGenerator
             ILGenerator tmp_il = il;
             MethodBuilder tmp_meth = cur_meth;
 
-            //при отладке компилятора здесь иногда ничего нет!
+            //when debugging the compiler this can sometimes be empty!
             ICommonNamespaceNode[] cnns = p.namespaces;
 
 
-            //создаем отладочные документы
+            //create debug documents
             if (save_debug_info)
             {
                 first_doc = mb.DefineDocument(SourceFileName, SymDocumentType.Text, SymLanguageType.Pascal, SymLanguageVendor.Microsoft);
@@ -798,7 +798,7 @@ namespace PascalABCCompiler.NETGenerator
                     else
                         doc = first_doc;
                     if (cnns_document_file_name != null && !sym_docs.ContainsKey(cnns_document_file_name))
-                        sym_docs.Add(cnns_document_file_name, doc);//сохраняем его в таблице документов
+                        sym_docs.Add(cnns_document_file_name, doc);//save it in the document table
                 }
                 first_doc = sym_docs[cnns[0].Location == null ? SourceFileName : cnns[0].Location.file_name];
 
@@ -814,7 +814,7 @@ namespace PascalABCCompiler.NETGenerator
             }
             ICommonNamespaceNode entry_ns = null;
 
-            //Переводим заголовки типов
+            //Convert type headers
             for (int iii = 0; iii < cnns.Length; iii++)
             {
                 if (save_debug_info) doc = sym_docs[cnns[iii].Location == null ? SourceFileName : cnns[iii].Location.file_name];
@@ -836,7 +836,7 @@ namespace PascalABCCompiler.NETGenerator
                 ConvertTypeHeaders(cnn.types);
             }
 
-            //Переводим псевдоинстанции generic-типов
+            //Convert pseudo-instances of generic types
             foreach (ICommonTypeNode ictn in p.generic_type_instances)
             {
                 ConvertTypeHeaderInSpecialOrder(ictn);
@@ -853,7 +853,7 @@ namespace PascalABCCompiler.NETGenerator
                     var cnnsnamespace_name = cnns[iii].namespace_name;
                     if (IsDllAndSystemNamespace(cnnsnamespace_name, onlyfname))
                         cnnsnamespace_name = "$" + cnnsnamespace_name;
-                    //определяем синтетический класс для модуля
+                    //define the synthetic class for the module
                     cur_type = mb.DefineType(cnnsnamespace_name + "." + cnns[iii].namespace_name, TypeAttributes.Public);
                     types.Add(cur_type);
                     NamespaceTypesList.Add(cur_type);
@@ -929,7 +929,7 @@ namespace PascalABCCompiler.NETGenerator
                 helper.AddDummyMethod(cur_unit_type, mb);
                 ConvertTypeMemberHeaders(cnns[iii].types);
             }
-            //Переводим псевдоинстанции generic-типов
+            //Convert pseudo-instances of generic types
             foreach (IGenericTypeInstance ictn in p.generic_type_instances)
             {
                 ConvertGenericInstanceTypeMembers(ictn);
@@ -943,7 +943,7 @@ namespace PascalABCCompiler.NETGenerator
                 ConvertFunctionHeaders(cnns[iii].functions, false);
             }
 
-            //Переводим псевдоинстанции функций
+            //Convert pseudo-instances of functions
             foreach (IGenericFunctionInstance igfi in p.generic_function_instances)
             {
                 ConvertGenericFunctionInstance(igfi);
@@ -982,7 +982,7 @@ namespace PascalABCCompiler.NETGenerator
 
             ConstructorBuilder unit_cci = null;
 
-            //Переводим заголовки всего остального (процедур, переменных)
+            //Convert headers for everything else (procedures, variables)
             for (int iii = 0; iii < cnns.Length; iii++)
             {
                 if (save_debug_info) doc = sym_docs[cnns[iii].Location == null ? SourceFileName : cnns[iii].Location.file_name];
@@ -1003,27 +1003,27 @@ namespace PascalABCCompiler.NETGenerator
                 
                 if (!is_main_namespace)
                 {
-                    //определяем статический конструктор класса для модуля
+                    //define the static constructor of the module class
                     ConstructorBuilder cb = cur_type.DefineConstructor(MethodAttributes.Static, CallingConventions.Standard, Type.EmptyTypes);
                     il = cb.GetILGenerator();
                     if (cnn.IsMain) unit_cci = cb;
                     ModulesInitILGenerators.Add(cur_type, il);
                     
-                    //перводим константы
+                    //convert constants
                     ConvertNamespaceConstants(cnn.constants);
-                    //переводим глобальные переменные модуля
+                    //convert global variables of the module
                     ConvertGlobalVariables(cnn.variables);
                     ConvertNamespaceEvents(cnn.events);
                     //il.Emit(OpCodes.Ret);
                 }
                 else
                 {
-                    //Не нарвится мне порядок вызова. надо с этим разобраться
+                    //The call order is not ideal. Need to sort this out
                     init_variables_mb = helper.GetMethodBuilder(cnn.functions[cnn.functions.Length-1]);// cur_type.DefineMethod("$InitVariables", MethodAttributes.Public | MethodAttributes.Static);
                     il = entry_meth.GetILGenerator();
                     ModulesInitILGenerators.Add(cur_type, il);
                     il = init_variables_mb.GetILGenerator();
-                    //перводим константы
+                    //convert constants
                     ConvertNamespaceConstants(cnn.constants);
                     ConvertGlobalVariables(cnn.variables);
                     ConvertNamespaceEvents(cnn.events);
@@ -1039,7 +1039,7 @@ namespace PascalABCCompiler.NETGenerator
                 if (save_debug_info) doc = sym_docs[cnns[iii].Location == null ? SourceFileName : cnns[iii].Location.file_name];
                 cur_type = NamespacesTypes[cnns[iii]];
                 cur_unit_type = NamespacesTypes[cnns[iii]];
-                //генерим инциализацию для полей
+                //generate initialization code for fields
                 foreach (SemanticTree.ICommonTypeNode ctn in cnns[iii].types)
                     GenerateInitCodeForFields(ctn);
             }
@@ -1058,7 +1058,7 @@ namespace PascalABCCompiler.NETGenerator
             if (entry_type != null)
                 cur_type = entry_type;
             //is_in_unit = false;
-            //переводим реализации
+            //convert implementations
             for (int iii = 0; iii < cnns.Length; iii++)
             {
                 if (save_debug_info) doc = sym_docs[cnns[iii].Location == null ? SourceFileName : cnns[iii].Location.file_name];
@@ -1089,7 +1089,7 @@ namespace PascalABCCompiler.NETGenerator
                 if (save_debug_info) doc = sym_docs[cnns[iii].Location == null ? SourceFileName : cnns[iii].Location.file_name];
                 cur_type = NamespacesTypes[cnns[iii]];
                 cur_unit_type = NamespacesTypes[cnns[iii]];
-                //вставляем ret в int_meth
+                //insert ret in int_meth
                 foreach (SemanticTree.ICommonTypeNode ctn in cnns[iii].types)
                     GenerateRetForInitMeth(ctn);
                 ModulesInitILGenerators[cur_type].Emit(OpCodes.Ret);
@@ -1103,7 +1103,7 @@ namespace PascalABCCompiler.NETGenerator
             if (entry_type != null)
                 cur_type = entry_type;
 
-            CloseTypes();//закрываем типы
+            CloseTypes();//close types
             // SSM 07.02.20  ?
             entry_type?.CreateType();
             // Entry point is passed to ManagedPEBuilder at save time (SetEntryPoint is not on AssemblyBuilder in .NET 10).
@@ -1177,7 +1177,7 @@ namespace PascalABCCompiler.NETGenerator
                 ab.SetCustomAttribute(cab);
                 cab = new CustomAttributeBuilder(TypeFactory.AssemblyDelaySignAttributeCtor, new object[] { true });
                 ab.SetCustomAttribute(cab);
-                cab = new CustomAttributeBuilder(TypeFactory.TargetFrameworkAttributeCtor, new object[] { ".NETFramework,Version=v4.0" });
+                cab = new CustomAttributeBuilder(TypeFactory.TargetFrameworkAttributeCtor, new object[] { $".NETCoreApp,Version=v{Environment.Version.Major}.0" });
                 ab.SetCustomAttribute(cab);
             }
 
@@ -1200,7 +1200,7 @@ namespace PascalABCCompiler.NETGenerator
             if (options.TargetFramework != "")
             {
                 string frameworkVersion = string.Join(".", options.TargetFramework.Substring(3).AsEnumerable());
-                ab.SetCustomAttribute(new CustomAttributeBuilder(TypeFactory.TargetFrameworkAttributeCtor, new object[] { $".NETFramework,Version=v{frameworkVersion}" }));
+                ab.SetCustomAttribute(new CustomAttributeBuilder(TypeFactory.TargetFrameworkAttributeCtor, new object[] { $".NETCoreApp,Version=v{frameworkVersion}" }));
             }
 
             int tries = 0;
@@ -1451,10 +1451,10 @@ namespace PascalABCCompiler.NETGenerator
                 ConvertedConstants.Add(constant_value, fb);
         }
 
-        //это требование Reflection.Emit - все типы должны быть закрыты
+        //this is a requirement of Reflection.Emit - all types must be closed
         private void CloseTypes()
         {
-            //(ssyy) TODO: подумать, в каком порядке создавать типы
+            //(ssyy) TODO: think about the order in which to create types
             List<TypeBuilder> closed_types = new List<TypeBuilder>();
             for (int i = 0; i < types.Count; i++)
                 if (types[i].IsInterface)
@@ -1464,7 +1464,7 @@ namespace PascalABCCompiler.NETGenerator
                     }
                     catch(TypeLoadException ex)
                     {
-                        if (ex.Message.Contains("рекурсивное") || ex.Message.Contains("recursive") || ex.Message.Contains("rekursiv"))
+                        if (ex.Message.Contains("recursive") || ex.Message.Contains("recursive") || ex.Message.Contains("rekursiv"))
                         {
                             SemanticTree.ICommonTypeNode ctn = helper.GetTypeNodeByTypeBuilder(types[i]);
                             if (ctn != null)
@@ -1588,7 +1588,7 @@ namespace PascalABCCompiler.NETGenerator
                 
         }
 
-        //перевод тела
+        //convert body
         private void ConvertBody(IStatementNode body)
         {
             if (!(body is IStatementsListNode) && save_debug_info && body.Location != null)
@@ -1606,7 +1606,7 @@ namespace PascalABCCompiler.NETGenerator
             }
         }
 
-        //перевод заголовков типов
+        //convert type headers
         private void ConvertTypeHeaders(ICommonTypeNode[] types)
         {
             foreach (ICommonTypeNode t in types)
@@ -1663,7 +1663,7 @@ namespace PascalABCCompiler.NETGenerator
             return tb;
         }
 
-        //переводим заголовки типов в порядке начиная с базовых классов (т. е. у которых наследники - откомпилированные типы)
+        //convert type headers in order starting from base classes (i.e. those whose descendants are compiled types)
         private void ConvertTypeHeaderInSpecialOrder(ICommonTypeNode t)
         {
             if (t.type_special_kind == type_special_kind.diap_type) return;
@@ -1733,12 +1733,12 @@ namespace PascalABCCompiler.NETGenerator
             {
                 AddTypeWithoutConvert(t);
             }
-            // ImplementingInterfacesOrEmpty, потому что если интерфейсы небыли лениво-посчитаны семантикой
-            // То и тут их обходить нет смысла
-            // А в ошибочных ситуациях (как err0303.pas) может ещё и зациклится
+            // ImplementingInterfacesOrEmpty, because if the interfaces were not lazily computed by the semantic analysis
+            // then there is no point iterating over them here either
+            // And in error cases (like err0303.pas) it may even loop forever
             foreach (ITypeNode interf in t.ImplementingInterfacesOrEmpty)
-                if (!(interf is ICompiledTypeNode)  && (interf != t)) // SSM 15/02/23 (interf != t) добавил в связи с ковариантностью 
-                                                                      // т.к. в случае IEnumerable<object> = IEnumerable<Student> возникал сбой
+                if (!(interf is ICompiledTypeNode)  && (interf != t)) // SSM 15/02/23 added (interf != t) due to covariance
+                                                                      // because in the case IEnumerable<object> = IEnumerable<Student> a crash occurred
                     ConvertTypeHeaderInSpecialOrder((ICommonTypeNode)interf);
             if (t.base_type != null && !(t.base_type is ICompiledTypeNode))
             {
@@ -1763,31 +1763,31 @@ namespace PascalABCCompiler.NETGenerator
             }
             
             helper.AddType(t, tb);
-            //(ssyy) обрабатываем generics
+            //(ssyy) handle generics
             if (t.is_generic_type_definition)
             {
                 int count = t.generic_params.Count;
                 string[] par_names = new string[count];
-                //Создаём массив имён параметров
+                //Create an array of parameter names
                 for (int i = 0; i < count; i++)
                 {
                     par_names[i] = t.generic_params[i].name;
                 }
-                //Определяем параметры в строящемся типе
+                //Define parameters in the type being built
                 GenericTypeParameterBuilder[] net_pars = tb.DefineGenericParameters(par_names);
                 for (int i = 0; i < count; i++)
                 {
-                    //добавляем параметр во внутр. структуры
+                    //add the parameter to internal structures
                     helper.AddExistingType(t.generic_params[i], net_pars[i]);
                 }
             }
         }
 
-        //перевод релизаций типов
+        //convert type implementations
         private void ConvertTypeImplementations(ICommonTypeNode[] types)
         {
             foreach (ICommonTypeNode t in types)
-            //если это не особый тип переводим реализацию наверно здесь много лишнего нужно оставить ISimpleArrayNode
+            //if this is not a special type, convert the implementation — probably a lot of redundant stuff here, need to keep ISimpleArrayNode
             {
                 if ( t.type_special_kind != type_special_kind.diap_type &&
                     !t.depended_from_indefinite)
@@ -1811,10 +1811,10 @@ namespace PascalABCCompiler.NETGenerator
             types.Remove(type);
         }
 
-        //перевод заголовков членов класса
+        //convert class member headers
         private void ConvertTypeMemberHeaders(ICommonTypeNode[] types)
         {
-            //(ssyy) Переупорядочиваем, чтобы массивы создавались в правильном порядке
+            //(ssyy) Reorder so that arrays are created in the correct order
             List<ICommonTypeNode> ts = new List<ICommonTypeNode>(types);
             while (ts.Count > 0)
             {
@@ -1883,7 +1883,7 @@ namespace PascalABCCompiler.NETGenerator
             }
         }
 
-        //ssyy 04.02.2010. Вернул следующие 2 функции в исходное состояние.
+        //ssyy 04.02.2010. Restored the following 2 functions to their original state.
         private void ConvertCompiledGenericInstanceTypeMembers(ICompiledGenericTypeInstance value)
         {
             Type t = helper.GetTypeReference(value).tp;
@@ -1893,7 +1893,22 @@ namespace PascalABCCompiler.NETGenerator
                 ICompiledConstructorNode iccn = dn as ICompiledConstructorNode;
                 if (iccn != null)
                 {
-                    ConstructorInfo ci = TypeBuilder.GetConstructor(t, iccn.constructor_info);
+                    ConstructorInfo ci;
+                    if (t.GetType().Name == "TypeBuilderInstantiation")
+                    {
+                        ci = TypeBuilder.GetConstructor(t, iccn.constructor_info);
+                    }
+                    else
+                    {
+                        // t is a RuntimeType (e.g. Func<int,string>); find the real constructor directly
+                        // to avoid ConstructorOnTypeBuilderInstantiation which fails in .NET 10 emit
+                        ci = null;
+                        foreach (var c in t.GetConstructors(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance))
+                        {
+                            if (c.MetadataToken == iccn.constructor_info.MetadataToken) { ci = c; break; }
+                        }
+                        if (ci == null) ci = TypeBuilder.GetConstructor(t, iccn.constructor_info);
+                    }
                     helper.AddConstructor(value.used_members[dn] as IFunctionNode, ci);
                     continue;
                 }
@@ -2019,12 +2034,12 @@ namespace PascalABCCompiler.NETGenerator
                     {
                         FieldInfo finfo = fldinfo.fi;
                         Type ftype = GetTypeOfGenericInstanceField(t, finfo);
-                        FieldInfo fi = TypeBuilder.GetField(t, finfo); // возвращает fi: FieldOnTypeBuilderInstantiation
-                        helper.AddGenericField(value.used_members[dn] as ICommonClassFieldNode, fi, ftype, finfo); // передаю также старое finfo чтобы на следующей итерации вызовом TypeBuilder.GetField(t, finfo) сконструировать правильное fi
+                        FieldInfo fi = TypeBuilder.GetField(t, finfo); // returns fi: FieldOnTypeBuilderInstantiation
+                        helper.AddGenericField(value.used_members[dn] as ICommonClassFieldNode, fi, ftype, finfo); // also passing the old finfo so that on the next iteration TypeBuilder.GetField(t, finfo) constructs the correct fi
                     }
                     else
                     {
-                        /* Вот этот код не выполняется ни в одном тесте и в примере 
+                        /* This code does not execute in any test and in the example
                           type
                           Base<T> = class
                             XYZW: T;
@@ -2037,9 +2052,9 @@ namespace PascalABCCompiler.NETGenerator
                           var a := new Derived<integer>;
                           a.XYZW := 2;
                         end.
-                        срабатывает неправильно !!!
+                        fires incorrectly !!!
 
-                        Исправил, введя доп. поле в GenericFldInfo, которое хранит FieldBuilder и позволяет конструировать fi на следующей итерации
+                        Fixed by introducing an additional field in GenericFldInfo that stores the FieldBuilder and allows constructing fi on the next iteration
                         */
 
                         FieldInfo finfo = (fldinfo as GenericFldInfo).prev_fi;
@@ -2262,10 +2277,10 @@ namespace PascalABCCompiler.NETGenerator
             }
         }
 
-        //определяем заголовки членов класса
+        //define class member headers
         private void ConvertTypeMemberHeader(ICommonTypeNode value)
         {
-            //если это оболочка над массивом переводим ее особым образом
+            //if this is an array wrapper, convert it in a special way
             if (value.type_special_kind == type_special_kind.diap_type || value.type_special_kind == type_special_kind.array_kind) return;
             if (value.fields.Length == 1 && value.fields[0].type is ISimpleArrayNode)
             {
@@ -2273,7 +2288,7 @@ namespace PascalABCCompiler.NETGenerator
                 return;
             }
             if (value is ISimpleArrayNode) return;
-            //этот тип уже был переведен, поэтому находим его
+            //this type was already converted, so look it up
             TypeInfo ti = helper.GetTypeReference(value);
 
             //ivan
@@ -2281,16 +2296,16 @@ namespace PascalABCCompiler.NETGenerator
             TypeBuilder tb = (TypeBuilder)ti.tp;
             if (tb.IsValueType)
                 BuildCloseTypeOrder(value, tb);
-            //сохраняем контекст
+            //save context
             TypeInfo tmp_ti = cur_ti;
             cur_ti = ti;
             TypeBuilder tmp = cur_type;
             cur_type = tb;
 
-            //(ssyy) Если это интерфейс, то пропускаем следующую хрень
+            //(ssyy) If this is an interface, skip the following block
             if (!value.IsInterface)
             {
-                //определяем метод $Init$ для выделения памяти, если метод еще не определен (в структурах он опред-ся раньше)
+                //define the $Init$ method for memory allocation, if not yet defined (in structs it is defined earlier)
                 MethodBuilder clone_mb = null;
                 MethodBuilder ass_mb = null;
                 if (ti.init_meth != null && tb.IsValueType)
@@ -2328,7 +2343,7 @@ namespace PascalABCCompiler.NETGenerator
             }
             else
             {
-                //(ssyy) сейчас переводим интерфейс
+                //(ssyy) currently converting an interface
 
                 foreach (ICommonMethodNode meth in value.methods)
                     ConvertMethodHeader(meth);
@@ -2351,7 +2366,7 @@ namespace PascalABCCompiler.NETGenerator
                     tb.SetCustomAttribute(TypeFactory.DefaultMemberAttributeType.GetConstructor(new Type[1] { TypeFactory.StringType }), bytes);
                 }
             }
-            //восстанавливаем контекст
+            //restore context
             cur_type = tmp;
             cur_ti = tmp_ti;
         }
@@ -2380,11 +2395,11 @@ namespace PascalABCCompiler.NETGenerator
         {
             MethodBuilder init_mb = tb.DefineMethod("$Init$", MethodAttributes.Public, TypeFactory.VoidType, Type.EmptyTypes);
             ti.init_meth = init_mb;
-            //определяем метод $Init$ для выделения памяти, если метод еще не определен (в структурах он опред-ся раньше)
+            //define the $Init$ method for memory allocation, if not yet defined (in structs it is defined earlier)
             //MethodBuilder init_mb = ti.init_meth;
             //if (init_mb == null) init_mb = tb.DefineMethod("$Init$", MethodAttributes.Public, typeof(void), Type.EmptyTypes);
             ti.init_meth = init_mb;
-            //определяем метод Clone и Assign
+            //define Clone and Assign methods
             if (tb.IsValueType)
             {
                 MethodBuilder clone_mb = null;
@@ -2434,18 +2449,18 @@ namespace PascalABCCompiler.NETGenerator
             return false;
         }
 
-        //Переводит аттрибуты типа в аттрибуты .NET
+        //Converts type attributes to .NET attributes
         private TypeAttributes ConvertAttributes(ICommonTypeNode value)
         {
             TypeAttributes ta = TypeAttributes.Public;
             if (value.type_access_level == type_access_level.tal_internal)
                 ta = TypeAttributes.NotPublic;
-            //(ssyy) 27.10.2007 Прекратить бардак!  Я в третий раз устанавливаю здесь аттрибут Sealed!
-            //Это надо, чтобы нельзя было наследовать от записей.
-            //В следующий раз разработчику, снявшему аттрибут Sealed, указать причину, по которой это было сделано!
+            //(ssyy) 27.10.2007 Stop the mess! I am setting the Sealed attribute here for the third time!
+            //This is needed so that records cannot be inherited from.
+            //Next time a developer removes the Sealed attribute, they must document the reason!
             if (value.is_value_type)
                 ta |= TypeAttributes.SequentialLayout | TypeAttributes.BeforeFieldInit | TypeAttributes.Sealed;
-            //TypeAttributes.Sealed нужно!
+            //TypeAttributes.Sealed is required!
 
             if (value.IsSealed)
                 ta |= TypeAttributes.Sealed;
@@ -2516,15 +2531,15 @@ namespace PascalABCCompiler.NETGenerator
             return type_name;
         }
 
-        //Перевод заголовка типа
+        //Convert type header
         private void ConvertTypeHeader(ICommonTypeNode value)
         {
-            //(ssyy) Обрабатываем инстанции generic-типов
+            //(ssyy) Handle generic type instances
             //FillGetterMethodsTable(value);
             IGenericTypeInstance igtn = value as IGenericTypeInstance;
             if (igtn != null)
             {
-                //Формируем список типов-параметров 
+                //Build the list of type parameters
                 List<Type> iparams = new List<Type>();
                 foreach (ITypeNode itn in igtn.generic_parameters)
                 {
@@ -2536,11 +2551,11 @@ namespace PascalABCCompiler.NETGenerator
                     }
                     iparams.Add(tinfo.tp);
                 }
-                //Запрашиваем инстанцию
+                //Request the instantiation
                 //ICompiledTypeNode icompiled_type = igtn.original_generic as ICompiledTypeNode;
                 Type orig_type = helper.GetTypeReference(igtn.original_generic).tp;
                 Type rez = orig_type.MakeGenericType(iparams.ToArray());
-                //Добавляем в хэш
+                //Add to the hash
                 TypeInfo inst_ti = helper.AddExistingType(igtn, rez);
                 TypeInfo generic_def_ti = helper.GetTypeReference(igtn.original_generic);
                 if (generic_def_ti.init_meth != null)
@@ -2560,7 +2575,7 @@ namespace PascalABCCompiler.NETGenerator
                 interfaces[i] = ii_ti.tp;
             }
 
-            //определяем тип
+            //define the type
             TypeInfo ti = helper.GetTypeReference(value);
             bool not_exist = ti == null;
             TypeBuilder tb = null;
@@ -2617,7 +2632,7 @@ namespace PascalABCCompiler.NETGenerator
                     }
                 }
             }
-            //добавлям его во внутр. структуры
+            //add it to internal structures
             if (not_exist)
             {
                 ti = helper.AddType(value, tb);
@@ -2642,15 +2657,15 @@ namespace PascalABCCompiler.NETGenerator
             }
             if (!value.is_generic_parameter)
             {
-                AddTypeToCloseList(tb);//добавляем его в список закрытия
+                AddTypeToCloseList(tb);//add it to the close list
                 if (!value.IsInterface && value.type_special_kind != type_special_kind.array_wrapper)
                     AddInitMembers(ti, tb, value);
             }
-            //если это обертка над массивом, сразу переводим реализацию
+            //if this is an array wrapper, convert the implementation immediately
             //if (value.fields.Length == 1 && value.fields[0].type is ISimpleArrayNode) ConvertArrayWrapperType(value);
         }
 
-        //перевод заголовков функций
+        //convert function headers
         private void ConvertFunctionHeaders(ICommonNamespaceFunctionNode[] funcs, bool with_nested)
         {
             for (int i = 0; i < funcs.Length; i++)
@@ -2663,26 +2678,26 @@ namespace PascalABCCompiler.NETGenerator
                 IStatementNode[] statements = sl.statements;
                 if (statements.Length > 0 && statements[0] is IExternalStatementNode)
                 {
-                    //функция импортируется из dll
+                    //function is imported from a dll
                     ICommonNamespaceFunctionNode func = funcs[i];
                     Type ret_type = null;
-                    //получаем тип возвр. значения
+                    //get the return value type
                     if (func.return_value_type == null)
                         ret_type = null;//typeof(void);
                     else
                         ret_type = helper.GetTypeReference(func.return_value_type).tp;
-                    Type[] param_types = GetParamTypes(func);//получаем параметры процедуры
+                    Type[] param_types = GetParamTypes(func);//get procedure parameters
 
                     IExternalStatementNode esn = (IExternalStatementNode)statements[0];
                     string module_name = Tools.ReplaceAllKeys(esn.module_name, StandartDirectories);
                     MethodBuilder methb = cur_type.DefinePInvokeMethod(func.name, module_name, esn.name,
                                                                        MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.PinvokeImpl | MethodAttributes.HideBySig,
                                                                        CallingConventions.Standard, ret_type, param_types, CallingConvention.Winapi,
-                                                                       CharSet.Ansi);//определяем PInvoke-метод
+                                                                       CharSet.Ansi);//define the PInvoke method
                     methb.SetImplementationFlags(MethodImplAttributes.PreserveSig);
                     helper.AddMethod(func, methb);
                     IParameterNode[] parameters = func.parameters;
-                    //определяем параметры с указанием имени
+                    //define parameters with names
                     for (int j = 0; j < parameters.Length; j++)
                     {
                         ParameterAttributes pars = ParameterAttributes.None;
@@ -2695,22 +2710,22 @@ namespace PascalABCCompiler.NETGenerator
                 else
                     if (statements.Length > 0 && statements[0] is IPInvokeStatementNode)
                     {
-                        //функция импортируется из dll
+                        //function is imported from a dll
                         ICommonNamespaceFunctionNode func = funcs[i];
                         Type ret_type = null;
-                        //получаем тип возвр. значения
+                        //get the return value type
                         if (func.return_value_type == null)
                             ret_type = null;//typeof(void);
                         else
                             ret_type = helper.GetTypeReference(funcs[i].return_value_type).tp;
-                        Type[] param_types = GetParamTypes(funcs[i]);//получаем параметры процедуры
+                        Type[] param_types = GetParamTypes(funcs[i]);//get procedure parameters
 
-                        MethodBuilder methb = cur_type.DefineMethod(func.name, MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.PinvokeImpl | MethodAttributes.HideBySig, ret_type, param_types);//определяем PInvoke-метод
-                        
+                        MethodBuilder methb = cur_type.DefineMethod(func.name, MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.PinvokeImpl | MethodAttributes.HideBySig, ret_type, param_types);//define the PInvoke method
+
                         methb.SetImplementationFlags(MethodImplAttributes.PreserveSig);
                         helper.AddMethod(funcs[i], methb);
                         IParameterNode[] parameters = funcs[i].parameters;
-                        //определяем параметры с указанием имени
+                        //define parameters with names
                         for (int j = 0; j < parameters.Length; j++)
                         {
                             ParameterAttributes pars = ParameterAttributes.None;
@@ -2734,7 +2749,7 @@ namespace PascalABCCompiler.NETGenerator
             }
         }
 
-        //перевод тел функций
+        //convert function bodies
         private void ConvertFunctionsBodies(ICommonFunctionNode[] funcs)
         {
             for (int i = 0; i < funcs.Length; i++)
@@ -2748,16 +2763,16 @@ namespace PascalABCCompiler.NETGenerator
             }
         }
 
-        //создание записи активации для влож. процедур
+        //create an activation record for nested procedures
         private Frame MakeAuxType(ICommonFunctionNode func)
         {
 
             TypeBuilder tb = cur_type.DefineNestedType("$" + func.name + "$" + uid++, TypeAttributes.NestedPublic);
-            //определяем поле - ссылку на верхнюю запись активации
+            //define the field - a reference to the parent activation record
             FieldBuilder fb = tb.DefineField("$parent$", tb.DeclaringType.IsValueType ? tb.DeclaringType.MakePointerType() : tb.DeclaringType, FieldAttributes.Public);
-            //конструктор в кач-ве параметра, которого передается ссылка на верх. з/а
+            //constructor taking a reference to the parent activation record as parameter
             ConstructorBuilder cb = null;
-            //определяем метод для инициализации
+            //define the initialization method
             MethodBuilder mb = tb.DefineMethod("$Init$", MethodAttributes.Private, TypeFactory.VoidType, Type.EmptyTypes);
             if (funcs.Count > 0)
             {
@@ -2767,19 +2782,19 @@ namespace PascalABCCompiler.NETGenerator
             else
                 cb = tb.DefineConstructor(MethodAttributes.Public, CallingConventions.HasThis, Type.EmptyTypes);
             ILGenerator il = cb.GetILGenerator();
-            //сохраняем ссылку на верхнюю запись активации
+            //save the reference to the parent activation record
             if (func is ICommonNestedInFunctionFunctionNode)
             {
                 il.Emit(OpCodes.Ldarg_0);
                 il.Emit(OpCodes.Ldarg_1);
                 il.Emit(OpCodes.Stfld, fb);
             }
-            //вызываем метод $Init$
+            //call the $Init$ method
             il.Emit(OpCodes.Ldarg_0);
             il.Emit(OpCodes.Call, mb);
             il.Emit(OpCodes.Ret);
             types.Add(tb);
-            //создаем кадр записи активации
+            //create the activation record frame
             Frame frm = new Frame();
             frm.cb = cb;
             frm.mb = mb;
@@ -2788,7 +2803,7 @@ namespace PascalABCCompiler.NETGenerator
             return frm;
         }
 
-        //перевод псевдоинстанции функции
+        //convert a function pseudo-instance
         private void ConvertGenericFunctionInstance(IGenericFunctionInstance igfi)
         {
             if (helper.GetMethod(igfi) != null)
@@ -2819,25 +2834,25 @@ namespace PascalABCCompiler.NETGenerator
             helper.AddMethod(igfi, rez);
         }
 
-        //перевод заголовка функции
+        //convert a function header
         private void ConvertFunctionHeader(ICommonFunctionNode func)
         {
             //if (is_in_unit && helper.IsUsed(func)==false) return;
-            num_scope++; //увеличиваем глубину обл. видимости
+            num_scope++; //increase the nesting depth
             TypeBuilder tb = null, tmp_type = cur_type;
             Frame frm = null;
 
-            //func.functions_nodes.Length > 0 - имеет вложенные
-            //funcs.Count > 0 - сама вложенная
+            //func.functions_nodes.Length > 0 - has nested functions
+            //funcs.Count > 0 - is itself nested
             if (func.functions_nodes.Length > 0 || funcs.Count > 0)
             {
-                frm = MakeAuxType(func);//создаем запись активации
+                frm = MakeAuxType(func);//create an activation record
                 tb = frm.tb;
                 cur_type = tb;
             }
             else tb = cur_type;
             MethodAttributes attrs = MethodAttributes.Public | MethodAttributes.Static;
-            //определяем саму процедуру/функцию
+            //define the procedure/function
             MethodBuilder methb = null;
             methb = tb.DefineMethod(func.name, attrs);
             if (func.name == "__FixPointer" && cur_type.FullName == "PABCSystem.PABCSystem")
@@ -2865,12 +2880,12 @@ namespace PascalABCCompiler.NETGenerator
             }
 
             Type ret_type = null;
-            //получаем тип возвр. значения
+            //get the return value type
             if (func.return_value_type == null)
                 ret_type = TypeFactory.VoidType;
             else
                 ret_type = helper.GetTypeReference(func.return_value_type).tp;
-            //получаем типы параметров
+            //get the parameter types
             Type[] param_types = GetParamTypes(func);
 
             methb.SetParameters(param_types);
@@ -2878,12 +2893,12 @@ namespace PascalABCCompiler.NETGenerator
 
             MethInfo mi = null;
             if (smi.Count != 0)
-                //добавляем вложенную процедуру, привязывая ее к верхней процедуре
+                //add the nested procedure, binding it to the enclosing procedure
                 mi = helper.AddMethod(func, methb, smi.Peek());
             else
                 mi = helper.AddMethod(func, methb);
             mi.num_scope = num_scope;
-            mi.disp = frm;//тип - запись активации
+            mi.disp = frm;//type - activation record
             smi.Push(mi);
             ParameterBuilder pb = null;
             int num = 0;
@@ -2899,17 +2914,17 @@ namespace PascalABCCompiler.NETGenerator
             }
 
             //if (ret_type != typeof(void)) mi.ret_val = il.DeclareLocal(ret_type);
-            //если функция вложенная, то добавляем фиктивный параметр
-            //ссылку на верхнюю запись активации
+            //if the function is nested, add a dummy parameter -
+            //a reference to the parent activation record
             if (funcs.Count > 0)
             {
-                mi.nested = true;//это вложенная процедура
+                mi.nested = true;//this is a nested procedure
                 methb.DefineParameter(1, ParameterAttributes.None, "$up$");
                 num = 1;
             }
-            //все нелокальные параметры будем хранить в нестатических полях
-            //записи активации. В начале функции инициализируем эти поля
-            //параметрами
+            //all non-local parameters will be stored in non-static fields
+            //of the activation record. At the start of the function, initialize these fields
+            //with the parameter values
             IParameterNode[] parameters = func.parameters;
             FieldBuilder[] fba = new FieldBuilder[parameters.Length];
 
@@ -2940,27 +2955,27 @@ namespace PascalABCCompiler.NETGenerator
                 if (func.functions_nodes.Length > 0)
                 {
                     FieldBuilder fb = null;
-                    //если параметр передается по значению, то все нормально
+                    //if the parameter is passed by value, everything is fine
                     if (parameters[i].parameter_type == parameter_type.value)
                         fb = frm.tb.DefineField(parameters[i].name, param_types[i + num], FieldAttributes.Public);
                     else
                     {
-                        //иначе параметр передается по ссылке
-                        //тогда вместо типа параметра тип& используем тип*
-                        //например System.Int32& - System.Int32* (unmanaged pointer)
+                        //otherwise the parameter is passed by reference
+                        //so instead of the parameter type T& we use T*
+                        //for example System.Int32& becomes System.Int32* (unmanaged pointer)
                         Type pt = param_types[i + num].GetElementType().MakePointerType();
 
-                        //определяем поле для параметра
+                        //define the field for the parameter
                         fb = frm.tb.DefineField(parameters[i].name, pt, FieldAttributes.Public);
                     }
 
-                    //добавляем как глобальный параметр
+                    //add as a global parameter
                     helper.AddGlobalParameter(parameters[i], fb).meth = smi.Peek();
                     fba[i] = fb;
                 }
                 else
                 {
-                    //если проца не содержит вложенных, то все хорошо
+                    //if the procedure has no nested ones, everything is fine
                     helper.AddParameter(parameters[i], pb).meth = smi.Peek();
                 }
             }
@@ -2976,28 +2991,28 @@ namespace PascalABCCompiler.NETGenerator
             }
             if (func.functions_nodes.Length > 0 || funcs.Count > 0)
             {
-                //определяем переменную, хранящую ссылку на запись активации данной процедуры
+                //define the variable that holds a reference to the activation record of this procedure
                 LocalBuilder frame = il.DeclareLocal(cur_type);
                 mi.frame = frame;
                 if (doc != null) frame.SetLocalSymInfo("$disp$");
                 if (funcs.Count > 0)
                 {
-                    //если она вложенная, то конструктору зап. акт. передаем ссылку на верх. з. а.
+                    //if it is nested, pass the reference to the parent activation record to the constructor
                     il.Emit(OpCodes.Ldarg_0);
-                    //создаем запись активации
+                    //create the activation record
                     il.Emit(OpCodes.Newobj, frm.cb);
                     il.Emit(OpCodes.Stloc, frame);
                 }
                 else
                 {
-                    //в противном случае просто создаем з. а.
+                    //otherwise simply create the activation record
                     il.Emit(OpCodes.Newobj, frm.cb);
                     il.Emit(OpCodes.Stloc_0, frame);
                 }
                 if (func.functions_nodes.Length > 0)
                     for (int j = 0; j < fba.Length; j++)
                     {
-                        //сохраняем нелокальные параметры в полях
+                        //save non-local parameters in fields
                         il.Emit(OpCodes.Ldloc_0);
                         parameters = func.parameters;
                         if (parameters[j].parameter_type == parameter_type.value)
@@ -3013,24 +3028,24 @@ namespace PascalABCCompiler.NETGenerator
                         il.Emit(OpCodes.Stfld, fba[j]);
                     }
             }
-            funcs.Add(func); //здесь наверное дублирование
+            funcs.Add(func); //probably a duplicate here
             MethodBuilder tmp = cur_meth;
             cur_meth = methb;
 
-            //если функция не содержит вложенных процедур, то
-            //переводим переменные как локальные
+            //if the function has no nested procedures,
+            //convert variables as local
             //if (func.functions_nodes.Length > 0)
             //    non_local_variables[func] = new Tuple<MethodBuilder, MethodBuilder, List<ICommonFunctionNode>>(frm.mb, methb, new List<ICommonFunctionNode>(funcs));
             if (func.functions_nodes.Length > 0)
                 ConvertNonLocalVariables(func.var_definition_nodes, frm.mb);
-            //переводим заголовки вложенных функций
+            //convert headers of nested functions
             ConvertNestedFunctionHeaders(func.functions_nodes);
-            //переводим тела вложенных функций
+            //convert bodies of nested functions
             //foreach (ICommonNestedInFunctionFunctionNode f in func.functions_nodes)
             //	ConvertFunctionBody(f);
             if (frm != null)
                 frm.mb.GetILGenerator().Emit(OpCodes.Ret);
-            //восстанавливаем текущие значения
+            //restore current values
             cur_type = tmp_type;
             num_scope--;
             smi.Pop();
@@ -3055,8 +3070,8 @@ namespace PascalABCCompiler.NETGenerator
             }
         }
 
-        //перевод тела процедуры
-        //(ssyy) По-моему, это вызывается только для вложенных процедур.
+        //convert procedure body
+        //(ssyy) As far as I can tell, this is only called for nested procedures.
         private void ConvertFunctionBody(ICommonFunctionNode func)
         {
             //if (is_in_unit && helper.IsUsed(func)==false) return;
@@ -3105,7 +3120,7 @@ namespace PascalABCCompiler.NETGenerator
             num_scope--;
         }
 
-        //перевод тела функции
+        //convert function body
         private void ConvertFunctionBody(ICommonFunctionNode func, MethInfo mi, bool conv_first_stmt)
         {
             //if (is_in_unit && helper.IsUsed(func)==false) return;
@@ -3119,7 +3134,7 @@ namespace PascalABCCompiler.NETGenerator
             smi.Push(mi);
             funcs.Add(func);
             if (conv_first_stmt)
-                ConvertBody(func.function_code);//переводим тело
+                ConvertBody(func.function_code);//convert body
             else
             {
                 ConvertStatementsListWithoutFirstStatement(func.function_code as IStatementsListNode);
@@ -3133,7 +3148,7 @@ namespace PascalABCCompiler.NETGenerator
             //\ivan for debug
             if (cur_meth.ReturnType == TypeFactory.VoidType)
                 il.Emit(OpCodes.Ret);
-            //восстановление значений
+            //restore values
             cur_meth = tmp;
             cur_type = tmp_type;
             il = tmp_il;
@@ -3148,7 +3163,7 @@ namespace PascalABCCompiler.NETGenerator
                 ConvertFunctionHeader(funcs[i]);
         }
 
-        //процедура получения типов параметров процедуры
+        //procedure for getting the parameter types of a procedure
         private Type[] GetParamTypes(ICommonFunctionNode func)
         {
             Type[] tt = null;
@@ -3163,7 +3178,7 @@ namespace PascalABCCompiler.NETGenerator
                 tt = new Type[parameters.Length];
             for (int i = 0; i < parameters.Length; i++)
             {
-                //этот тип уже был определен, поэтому получаем его с помощью хелпера
+                //this type was already defined, so get it via the helper
                 Type tp = helper.GetTypeReference(parameters[i].type).tp;
                 if (parameters[i].parameter_type == parameter_type.value)
                     tt[i + num] = tp;
@@ -3177,7 +3192,7 @@ namespace PascalABCCompiler.NETGenerator
         {
             for (int i = 0; i < vars.Length; i++)
             {
-                //если лок. переменная используется как нелокальная
+                //if the local variable is used as non-local
                 if (vars[i].is_used_as_unlocal == true)
                     ConvertNonLocalVariable(vars[i], cb);
                 else
@@ -3185,16 +3200,16 @@ namespace PascalABCCompiler.NETGenerator
             }
         }
 
-        //создание нелокальной переменной
-        //нелок. перем. представляется в виде нестат. поля класса-обертки над процедурой
+        //create a non-local variable
+        //non-local variables are represented as non-static fields of the procedure wrapper class
         private void ConvertNonLocalVariable(ILocalVariableNode var, MethodBuilder cb)
         {
             TypeInfo ti = helper.GetTypeReference(var.type);
-            //cur_type сейчас хранит ссылку на созданный тип - обертку
+            //cur_type currently holds a reference to the created wrapper type
             FieldBuilder fb = cur_type.DefineField(var.name, ti.tp, FieldAttributes.Public);
             VarInfo vi = helper.AddNonLocalVariable(var, fb);
             vi.meth = smi.Peek();
-            //если перем. имеет тип массив, то выделяем под него память
+            //if the variable has an array type, allocate memory for it
             //che-to nelogichno massivy v konstruktore zapisi aktivacii, a konstanty v kode procedury, nado pomenjat
             if (ti.is_arr)
             {
@@ -3221,20 +3236,20 @@ namespace PascalABCCompiler.NETGenerator
                 ConvertLocalVariable(vars[i], false, 0, 0);
         }
 
-        //создание локальной переменной
+        //create a local variable
         private void ConvertLocalVariable(IVAriableDefinitionNode var, bool add_line_info, int beg_line, int end_line)
         {
             TypeInfo ti = helper.GetTypeReference(var.type);
             bool pinned = false;
             if (ti.tp.IsPointer) pinned = true;
             LocalBuilder lb = il.DeclareLocal(ti.tp, pinned);
-            //если модуль отладочный, задаем имя переменной
+            //if this is a debug module, set the variable name
             if (save_debug_info)
                 if (add_line_info)
                     lb.SetLocalSymInfo(var.name + ":" + beg_line + ":" + end_line);
                 else
                     lb.SetLocalSymInfo(var.name);
-            helper.AddVariable(var, lb);//добавляем переменную
+            helper.AddVariable(var, lb);//add the variable
             if (var.type.is_generic_parameter && var.inital_value == null)
             {
                 CreateRuntimeInitCodeWithCheck(il, lb, var.type as ICommonTypeNode);
@@ -3508,7 +3523,7 @@ namespace PascalABCCompiler.NETGenerator
             this.il = ilc;
         }
 
-        //(ssyy) Инициализации переменных типа параметр дженерика
+        //(ssyy) Initialize variables of generic parameter type
         private void CreateRuntimeInitCodeWithCheck(ILGenerator il, LocalBuilder lb, ICommonTypeNode type)
         {
             if (type.runtime_initialization_marker == null) return;
@@ -3531,7 +3546,7 @@ namespace PascalABCCompiler.NETGenerator
             il.MarkLabel(lab);
         }
 
-        //(ssyy) Инициализации полей типа параметр дженерика
+        //(ssyy) Initialize fields of generic parameter type
         private void CreateRuntimeInitCodeWithCheck(ILGenerator il, FieldBuilder fb, ICommonTypeNode type)
         {
             if (type.runtime_initialization_marker == null) return;
@@ -3616,7 +3631,7 @@ namespace PascalABCCompiler.NETGenerator
             }
         }
 
-        //поля класса
+        //class fields
         private void CreateArrayForClassField(ILGenerator il, FieldBuilder fb, TypeInfo ti, IArrayConstantNode InitalValue, ITypeNode arr_type)
         {
             int rank = 1;
@@ -3707,7 +3722,7 @@ namespace PascalABCCompiler.NETGenerator
             }
         }
 
-        //создание массива (точнее класса-обертки над массивом) (лок. переменная)
+        //create an array (more precisely, a wrapper class over an array) (local variable)
         private void CreateArrayLocalVariable(ILGenerator il, LocalBuilder fb, TypeInfo ti, IArrayConstantNode InitalValue, ITypeNode arr_type)
         {
             int rank = 1;
@@ -3805,7 +3820,7 @@ namespace PascalABCCompiler.NETGenerator
             }
         }
 
-        //глобальные переменные
+        //global variables
         private void CreateArrayGlobalVariable(ILGenerator il, FieldBuilder fb, TypeInfo ti, IArrayConstantNode InitalValue, ITypeNode arr_type)
         {
             int rank = 1;
@@ -4907,7 +4922,7 @@ namespace PascalABCCompiler.NETGenerator
             }
         }
 
-        //перевод глобальной переменной (переменной модуля и основной программы)
+        //convert a global variable (module variable and main program variable)
         private void ConvertGlobalVariable(ICommonNamespaceVariableNode var)
         {
             //Console.WriteLine(is_in_unit);
@@ -4919,7 +4934,7 @@ namespace PascalABCCompiler.NETGenerator
             helper.AddGlobalVariable(var, fb);
             add_possible_type_attribute(fb, var.type);
             
-            //если переменная имеет тип - массив, то создаем его
+            //if the variable has an array type, create it
             if (ti.is_arr)
             {
                 if (var.inital_value == null || var.inital_value is IArrayConstantNode)
@@ -4980,12 +4995,12 @@ namespace PascalABCCompiler.NETGenerator
         private bool is_get_set = false;
         private string cur_prop_name;
 
-        //перевод свойства класса
+        //convert a class property
         public override void visit(SemanticTree.ICommonPropertyNode value)
         {
-            //получаем тип свойства
+            //get the property type
             Type ret_type = helper.GetTypeReference(value.property_type).tp;
-            //получаем параметры свойства
+            //get the property parameters
             Type[] tt = GetParamTypes(value);
             PropertyAttributes pa = PropertyAttributes.None;
             if (value.common_comprehensive_type.default_property == value)
@@ -6560,7 +6575,7 @@ namespace PascalABCCompiler.NETGenerator
                     //переводим локальные переменные
                     ConvertCommonFunctionConstantDefinitions(value.constants);
                     ConvertLocalVariables(value.var_definition_nodes);
-                    //вызываем метод $Init$ для инициализации массивов и проч.
+                    //call the $Init$ method для инициализации массивов и проч.
                     /*if (value.polymorphic_state != polymorphic_state.ps_static && value.common_comprehensive_type.base_type is ICompiledTypeNode && (value.common_comprehensive_type.base_type as ICompiledTypeNode).compiled_type == TypeFactory.ObjectType)
                     {
                         il.Emit(OpCodes.Ldarg_0);

@@ -65,81 +65,10 @@ namespace PascalABCCompiler.NetHelper
         private string GetStandardAssemblyPath(string name)
         {
             name = name.Replace("%GAC%\\", "");
-            string ttn = System.IO.Path.GetFileNameWithoutExtension(name);
             string tn = Path.Combine(standartAssemblyPath, name);
             if (File.Exists(tn))
                 return tn;
-            if (Environment.OSVersion.Platform != PlatformID.Unix && Environment.OSVersion.Platform != PlatformID.MacOSX)
-            {
-                string windir = Path.Combine(Environment.GetEnvironmentVariable("windir"), "Microsoft.NET");
-                tn = windir + @"\assembly\GAC_MSIL\";
-                tn += ttn + "\\";
-                System.IO.DirectoryInfo di = new System.IO.DirectoryInfo(tn);
-                if (!di.Exists)
-                {
-                    tn = windir + @"\assembly\GAC_64\";
-                    tn += ttn + "\\";
-                    di = new System.IO.DirectoryInfo(tn);
-                    if (!di.Exists)
-                    {
-                        tn = windir + @"\assembly\GAC_32\";
-                        tn += ttn + "\\";
-                        di = new System.IO.DirectoryInfo(tn);
-                        if (!di.Exists)
-                        {
-                            tn = windir + @"\assembly\GAC\";
-                            tn += ttn + "\\";
-                            di = new System.IO.DirectoryInfo(tn);
-                            if (!di.Exists)
-                            {
-                                windir = Environment.GetEnvironmentVariable("windir");
-                                tn = windir + @"\assembly\GAC_MSIL\";
-                                tn += ttn + "\\";
-                                di = new System.IO.DirectoryInfo(tn);
-                                if (!di.Exists)
-                                {
-                                    tn = windir + @"\assembly\GAC_64\";
-                                    tn += ttn + "\\";
-                                    di = new System.IO.DirectoryInfo(tn);
-                                    if (!di.Exists)
-                                    {
-                                        tn = windir + @"\assembly\GAC_32\";
-                                        tn += ttn + "\\";
-                                        di = new System.IO.DirectoryInfo(tn);
-                                        if (!di.Exists)
-                                        {
-                                            tn = windir + @"\assembly\GAC\";
-                                            tn += ttn + "\\";
-                                            di = new System.IO.DirectoryInfo(tn);
-                                            if (!di.Exists)
-                                            {
-                                                return null;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                System.IO.DirectoryInfo[] diarr = di.GetDirectories();
-                tn = Path.Combine((diarr[0]).FullName, name);
-            }
-            else
-            {
-                string gac_path = "/usr/lib/mono/4.0/gac";
-                DirectoryInfo di = new DirectoryInfo(Path.Combine(gac_path, ttn));
-                if (di.Exists)
-                {
-                    System.IO.DirectoryInfo[] diarr = di.GetDirectories();
-                    tn = Path.Combine((diarr[diarr.Length - 1]).FullName, name);
-                }
-                else
-                    return null;
-
-            }
-            return tn;
-
+            return null;
         }
 
         public List<string> missingAssemblies = new List<string>();

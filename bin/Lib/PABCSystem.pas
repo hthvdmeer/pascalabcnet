@@ -570,7 +570,7 @@ type
     static function operator>(first, second: NewSet<T>) := first.hs.IsProperSupersetOf(second.hs);
     static function operator>=(first, second: NewSet<T>) := first.hs.IsSupersetOf(second.hs);
 
-    static function operator implicit(ns: NewSet<T>): HashSet<T> := ns.ToHashSet;
+    static function operator implicit(ns: NewSet<T>): HashSet<T> := ns.hs;
     static function operator implicit(ns: HashSet<T>): NewSet<T>;
     begin
       Result.hs.UnionWith(ns);
@@ -3263,6 +3263,195 @@ function DQNToNullable<T>(v: T): Nullable<T>; where T: record;
 
 implementation
 
+// Bootstrap: Pascal extension method wrappers so self-compilation of this unit can
+// call .Select(f), .Where(f), etc. before C# LINQ extension methods are resolved.
+// NOTE: Functions that take generic delegate params use manual loops/yield to avoid
+// .NET 10 ConstructorOnTypeBuilderInstantiation emit failure when passing T->T1 to Func<T,T1>.
+function Select<T,T1>(Self: sequence of T; f: T->T1): sequence of T1; extensionmethod;
+begin foreach var _bx in Self do yield f(_bx); end;
+function &Where<T>(Self: sequence of T; f: T->boolean): sequence of T; extensionmethod;
+begin foreach var _bx in Self do if f(_bx) then yield _bx; end;
+function Any<T>(Self: sequence of T; f: T->boolean): boolean; extensionmethod;
+begin
+  Result := false;
+  foreach var _bx in Self do if f(_bx) then begin Result := true; exit; end;
+end;
+function Any<T>(Self: sequence of T): boolean; extensionmethod;
+begin Result := false; foreach var _bx in Self do begin Result := true; exit; end; end;
+function All<T>(Self: sequence of T; f: T->boolean): boolean; extensionmethod;
+begin
+  Result := true;
+  foreach var _bx in Self do if not f(_bx) then begin Result := false; exit; end;
+end;
+function First<T>(Self: sequence of T; f: T->boolean): T; extensionmethod;
+begin
+  foreach var _bx in Self do if f(_bx) then begin Result := _bx; exit; end;
+  raise new System.InvalidOperationException('Sequence contains no matching element');
+end;
+function First<T>(Self: sequence of T): T; extensionmethod;
+begin
+  foreach var _bx in Self do begin Result := _bx; exit; end;
+  raise new System.InvalidOperationException('Sequence contains no elements');
+end;
+function FirstOrDefault<T>(Self: sequence of T; f: T->boolean): T; extensionmethod;
+begin foreach var _bx in Self do if f(_bx) then begin Result := _bx; exit; end; end;
+function FirstOrDefault<T>(Self: sequence of T): T; extensionmethod;
+begin foreach var _bx in Self do begin Result := _bx; exit; end; end;
+function Last<T>(Self: sequence of T): T; extensionmethod;
+begin foreach var _bx in Self do Result := _bx; end;
+function OrderBy<T,TKey>(Self: sequence of T; f: T->TKey): sequence of T; extensionmethod;
+begin
+  var _lst := new List<T>(Self);
+  var _n := _lst.Count;
+  var _cmp := Comparer&<TKey>.Default;
+  for var _i := 1 to _n - 1 do
+  begin
+    var _tmp := _lst[_i]; var _k := f(_tmp); var _j := _i - 1;
+    while (_j >= 0) and (_cmp.Compare(f(_lst[_j]), _k) > 0) do
+    begin _lst[_j+1] := _lst[_j]; _j -= 1; end;
+    _lst[_j+1] := _tmp;
+  end;
+  Result := _lst;
+end;
+function OrderBy<T,TKey>(Self: sequence of T; f: T->TKey; cmp: System.Collections.Generic.IComparer<TKey>): sequence of T; extensionmethod;
+begin
+  var _lst := new List<T>(Self);
+  var _n := _lst.Count;
+  for var _i := 1 to _n - 1 do
+  begin
+    var _tmp := _lst[_i]; var _k := f(_tmp); var _j := _i - 1;
+    while (_j >= 0) and (cmp.Compare(f(_lst[_j]), _k) > 0) do
+    begin _lst[_j+1] := _lst[_j]; _j -= 1; end;
+    _lst[_j+1] := _tmp;
+  end;
+  Result := _lst;
+end;
+function SelectMany<T,T1>(Self: sequence of T; f: T->sequence of T1): sequence of T1; extensionmethod;
+begin foreach var _bx in Self do foreach var _by in f(_bx) do yield _by; end;
+function Count<T>(Self: sequence of T): integer; extensionmethod;
+begin foreach var _bx in Self do Result += 1; end;
+function Count<T>(Self: sequence of T; f: T->boolean): integer; extensionmethod;
+begin foreach var _bx in Self do if f(_bx) then Result += 1; end;
+function ToList<T>(Self: sequence of T): List<T>; extensionmethod;
+begin Result := System.Linq.Enumerable.ToList&<T>(Self); end;
+function ToArray<T>(Self: sequence of T): array of T; extensionmethod;
+begin Result := System.Linq.Enumerable.ToArray&<T>(Self); end;
+function Contains<T>(Self: sequence of T; x: T): boolean; extensionmethod;
+begin Result := System.Linq.Enumerable.Contains&<T>(Self, x); end;
+function Skip<T>(Self: sequence of T; n: integer): sequence of T; extensionmethod;
+begin Result := System.Linq.Enumerable.Skip&<T>(Self, n); end;
+function Take<T>(Self: sequence of T; n: integer): sequence of T; extensionmethod;
+begin Result := System.Linq.Enumerable.Take&<T>(Self, n); end;
+function TakeWhile<T>(Self: sequence of T; f: T->boolean): sequence of T; extensionmethod;
+begin foreach var _bx in Self do if f(_bx) then yield _bx else exit; end;
+function SkipWhile<T>(Self: sequence of T; f: T->boolean): sequence of T; extensionmethod;
+begin
+  var _bskip := true;
+  foreach var _bx in Self do
+  begin
+    if _bskip and f(_bx) then continue;
+    _bskip := false;
+    yield _bx;
+  end;
+end;
+function OrderByDescending<T,TKey>(Self: sequence of T; f: T->TKey): sequence of T; extensionmethod;
+begin
+  var _lst := new List<T>(Self);
+  var _n := _lst.Count;
+  var _cmp := Comparer&<TKey>.Default;
+  for var _i := 1 to _n - 1 do
+  begin
+    var _tmp := _lst[_i]; var _k := f(_tmp); var _j := _i - 1;
+    while (_j >= 0) and (_cmp.Compare(f(_lst[_j]), _k) < 0) do
+    begin _lst[_j+1] := _lst[_j]; _j -= 1; end;
+    _lst[_j+1] := _tmp;
+  end;
+  Result := _lst;
+end;
+function OrderByDescending<T,TKey>(Self: sequence of T; f: T->TKey; cmp: System.Collections.Generic.IComparer<TKey>): sequence of T; extensionmethod;
+begin
+  var _lst := new List<T>(Self);
+  var _n := _lst.Count;
+  for var _i := 1 to _n - 1 do
+  begin
+    var _tmp := _lst[_i]; var _k := f(_tmp); var _j := _i - 1;
+    while (_j >= 0) and (cmp.Compare(f(_lst[_j]), _k) < 0) do
+    begin _lst[_j+1] := _lst[_j]; _j -= 1; end;
+    _lst[_j+1] := _tmp;
+  end;
+  Result := _lst;
+end;
+function Distinct<T>(Self: sequence of T): sequence of T; extensionmethod;
+begin Result := System.Linq.Enumerable.Distinct&<T>(Self); end;
+function &Except<T>(Self: sequence of T; other: sequence of T): sequence of T; extensionmethod;
+begin Result := System.Linq.Enumerable.Except&<T>(Self, other); end;
+function Union<T>(Self: sequence of T; other: sequence of T): sequence of T; extensionmethod;
+begin Result := System.Linq.Enumerable.Union&<T>(Self, other); end;
+function Sum(Self: sequence of integer): integer; extensionmethod;
+begin Result := System.Linq.Enumerable.Sum(Self); end;
+function Sum(Self: sequence of real): real; extensionmethod;
+begin Result := System.Linq.Enumerable.Sum(Self); end;
+function Sum<T>(Self: sequence of T; f: T->real): real; extensionmethod;
+begin foreach var _bx in Self do Result += f(_bx); end;
+function Sum<T>(Self: sequence of T; f: T->integer): integer; extensionmethod;
+begin foreach var _bx in Self do Result += f(_bx); end;
+function Max<T,TRes>(Self: sequence of T; f: T->TRes): TRes; extensionmethod;
+begin
+  var _cmp := Comparer&<TRes>.Default;
+  var _bf := true;
+  foreach var _bx in Self do
+  begin
+    var _bv := f(_bx);
+    if _bf or (_cmp.Compare(_bv, Result) > 0) then begin Result := _bv; _bf := false; end;
+  end;
+end;
+function Min<T,TRes>(Self: sequence of T; f: T->TRes): TRes; extensionmethod;
+begin
+  var _cmp := Comparer&<TRes>.Default;
+  var _bf := true;
+  foreach var _bx in Self do
+  begin
+    var _bv := f(_bx);
+    if _bf or (_cmp.Compare(_bv, Result) < 0) then begin Result := _bv; _bf := false; end;
+  end;
+end;
+function AsEnumerable<T>(Self: sequence of T): sequence of T; extensionmethod;
+begin Result := Self; end;
+function Cast<T>(Self: System.Collections.IEnumerable): sequence of T; extensionmethod;
+begin Result := System.Linq.Enumerable.Cast&<T>(Self); end;
+function Max(Self: sequence of integer): integer; extensionmethod;
+begin Result := System.Linq.Enumerable.Max(Self); end;
+function Max(Self: sequence of real): real; extensionmethod;
+begin Result := System.Linq.Enumerable.Max(Self); end;
+function Min(Self: sequence of integer): integer; extensionmethod;
+begin Result := System.Linq.Enumerable.Min(Self); end;
+function Min(Self: sequence of real): real; extensionmethod;
+begin Result := System.Linq.Enumerable.Min(Self); end;
+type
+  BootGroupingResult<TKey,T> = sealed auto class(System.Linq.IGrouping<TKey,T>)
+    public auto property Key: TKey;
+    public auto property Elements: array of T;
+    public function GetEnumerator: IEnumerator<T> := Elements.AsEnumerable.GetEnumerator;
+    public function System.Collections.IEnumerable.GetEnumerator: System.Collections.IEnumerator := GetEnumerator;
+  end;
+function GroupBy<T,TKey>(Self: sequence of T; f: T->TKey): sequence of System.Linq.IGrouping<TKey,T>; extensionmethod;
+begin
+  var _d := new Dictionary<TKey, List<T>>();
+  foreach var _bx in Self do
+  begin
+    var _k := f(_bx);
+    if not _d.ContainsKey(_k) then _d[_k] := new List<T>();
+    _d[_k].Add(_bx);
+  end;
+  foreach var _kv in _d do
+    yield new BootGroupingResult<TKey,T>(_kv.Key, _kv.Value.ToArray);
+end;
+function ToDictionary<T,TKey,TVal>(Self: sequence of T; keySelector: T->TKey; valueSelector: T->TVal): Dictionary<TKey,TVal>; extensionmethod;
+begin
+  Result := new Dictionary<TKey,TVal>();
+  foreach var _bx in Self do Result.Add(keySelector(_bx), valueSelector(_bx));
+end;
+
 function NewSet<T>.ToString: string := $'{ObjectToString(hs)}';
 
 var
@@ -4015,7 +4204,7 @@ end;
 class function TypedSet.operator implicit<T>(s: HashSet<T>): TypedSet;
 begin
   var ts := new TypedSet();
-  foreach key: T in s.ToArray() do
+  foreach key: T in s do
   begin
     ts.ht[key] := key;  
   end;
@@ -4945,10 +5134,15 @@ type
       begin
         var s := System.Collections.IEnumerable(o);
         
-        var is_set :=
-          (o is TypedSet) or
-          o.GetType.GetInterfaces.Contains(typeof(System.Collections.IDictionary)) or
-          o.GetType.GetInterfaces.Any(intr->intr.IsGenericType and (intr.GetGenericTypeDefinition=typeof(System.Collections.Generic.ISet<>)));
+        var _ifaces := o.GetType.GetInterfaces;
+        var _is_dict := false;
+        var _is_iset := false;
+        for var _i := 0 to _ifaces.Length - 1 do
+        begin
+          if _ifaces[_i] = typeof(System.Collections.IDictionary) then _is_dict := true;
+          if _ifaces[_i].IsGenericType and (_ifaces[_i].GetGenericTypeDefinition = typeof(System.Collections.Generic.ISet<>)) then _is_iset := true;
+        end;
+        var is_set := (o is TypedSet) or _is_dict or _is_iset;
         
         res.Write( if is_set then '{' else '[' );
         var enmr := s.GetEnumerator;
@@ -5043,13 +5237,25 @@ begin
   if t.IsGenericType and (t.GetGenericTypeDefinition = typeof(NewSet<>)) then
   begin
     res.Write('set of ');
-    TypeToTypeNameHelper(t.GetGenericArguments.Single, res);
+    TypeToTypeNameHelper(t.GetGenericArguments[0], res);
     exit;
   end;
-  
-  if t.GetInterfaces.Append(t).Contains(typeof(System.Collections.IEnumerable)) then
+
+  if typeof(System.Collections.IEnumerable).IsAssignableFrom(t) then
   begin
-    var typed := t.GetInterfaces.Append(t).FirstOrDefault(intr->intr.IsGenericType and (intr.GetGenericTypeDefinition=typeof(IEnumerable<>)));
+    var typed: System.Type := nil;
+    if t.IsGenericType and (t.GetGenericTypeDefinition = typeof(IEnumerable<>)) then
+      typed := t
+    else
+    begin
+      var _tfaces2 := t.GetInterfaces;
+      for var _ki2 := 0 to _tfaces2.Length - 1 do
+        if _tfaces2[_ki2].IsGenericType and (_tfaces2[_ki2].GetGenericTypeDefinition = typeof(IEnumerable<>)) then
+        begin
+          typed := _tfaces2[_ki2];
+          break;
+        end;
+    end;
     if (t=typed) or (typed<>nil) and (
       // Выводим как sequence только классы, созданные yield функцией
       // "clyield#" это yield класс паскаля
@@ -5059,15 +5265,15 @@ begin
     ) then
     begin
       res.Write('sequence of ');
-      TypeToTypeNameHelper(typed.GetGenericArguments.Single, res);
+      TypeToTypeNameHelper(typed.GetGenericArguments[0], res);
       exit;
     end;
   end;
-  
+
   var gen_args := t.GetGenericArguments;
-  
+
   //TODO t.IsClass, чтобы ValueTuple пока что не ловило
-  if t.GetInterfaces.Contains(typeof(System.Runtime.CompilerServices.ITuple)) and t.IsClass then
+  if typeof(System.Runtime.CompilerServices.ITuple).IsAssignableFrom(t) and t.IsClass then
   begin
     res.Write('(');
     var any_gen_arg := false;
@@ -5128,7 +5334,7 @@ begin
     res.Write('+');
   end;
   
-  if gen_args.Count<>0 then
+  if gen_args.Length<>0 then
   begin
     res.Write(name.Remove(name.LastIndexOf('`')));
     res.Write('<');
@@ -5247,7 +5453,13 @@ begin
 end;
 
 ///--
-function operator in<T>(x: T; a: array of T): boolean; extensionmethod := a.Contains(x);
+function operator in<T>(x: T; a: array of T): boolean; extensionmethod;
+begin
+  for var _ii := 0 to a.Length - 1 do
+    if System.Object.Equals(a[_ii], x) then
+      exit(true);
+  Result := false;
+end;
 // operator in для конкретных num in [1,2,3] - в PABCExtensions
 
 function operator*<T>(a: array of T; n: integer): array of T; extensionmethod;
@@ -5590,19 +5802,19 @@ end;
 //------------------------------------------------------------------------------
 //          Операции для Dictionary<K,V>, SortedDictionary<K,V>, SortedList<K,V>
 //------------------------------------------------------------------------------
-function Dictionary<K, V>.operator in(key: K; d: Dictionary<K, V>): boolean;
+function operator in<K, V>(key: K; d: Dictionary<K, V>): boolean; extensionmethod;
 begin
   CheckNotNil(d, DICTIONARY_IS_NIL);
   Result := d.ContainsKey(key);
 end;
 
-function SortedDictionary<K, V>.operator in(key: K; d: SortedDictionary<K, V>): boolean;
+function operator in<K, V>(key: K; d: SortedDictionary<K, V>): boolean; extensionmethod;
 begin
   CheckNotNil(d, SORTEDDICTIONARY_IS_NIL);
   Result := d.ContainsKey(key);
 end;
 
-function SortedList<K, V>.operator in(key: K; d: SortedList<K, V>): boolean;
+function operator in<K, V>(key: K; d: SortedList<K, V>): boolean; extensionmethod;
 begin
   CheckNotNil(d, SORTEDLIST_IS_NIL);
   Result := d.ContainsKey(key);
@@ -5705,20 +5917,19 @@ procedure operator/=(var c: Complex; x: Complex); extensionmethod := c := c / x;
 ///--
 function operator+<T>(a, b: sequence of T): sequence of T; extensionmethod;
 begin
-  Result := a.Concat(b);
+  Result := System.Linq.Enumerable.Concat&<T>(a, b);
 end;
 
 ///--
 function operator+<T>(a: sequence of T; b: T): sequence of T; extensionmethod;
 begin
-  Result := a.Concat(new T[1](b));
+  Result := System.Linq.Enumerable.Concat&<T>(a, new T[1](b));
 end;
 
 ///--
 function operator+<T>(b: T; a: sequence of T): sequence of T; extensionmethod;
 begin
-  Result := new T[1](b);
-  Result := Result.Concat(a);
+  Result := System.Linq.Enumerable.Concat&<T>(new T[1](b), a);
 end;
 
 {function operator*<T>(a: sequence of T; n: integer): sequence of T; extensionmethod;
@@ -5736,7 +5947,7 @@ end;}
 ///--
 function operator in<T>(x: T; Self: sequence of T): boolean; extensionmethod;
 begin
-  Result := Self.Contains(x);
+  Result := System.Linq.Enumerable.Contains&<T>(Self, x);
 end;
 // -----------------------------------------------------------------------------
 //                Функции для последовательностей и динамических массивов
@@ -5767,12 +5978,20 @@ function Linspace(a, b: real; n: integer): sequence of real := PartitionPoints(a
 
 function Range(c1, c2: char): sequence of char;
 begin
-  Result := Range(integer(c1), integer(c2)).Select(x -> Chr(x));
+  for var _ci := integer(c1) to integer(c2) do
+    yield Chr(_ci);
 end;
 
 function Range(c1, c2: char; step: integer): sequence of char;
 begin
-  Result := Range(integer(c1), integer(c2), step).Select(x -> Chr(x));
+  if step = 0 then
+    RaiseArgumentException(PARAMETER_MUST_BE_NOT_EQUAL0_0, 'step');
+  var _ci := integer(c1);
+  while (step > 0) and (_ci <= integer(c2)) or (step < 0) and (_ci >= integer(c2)) do
+  begin
+    yield Chr(_ci);
+    _ci += step;
+  end;
 end;
 
 function Range(a, b, step: BigInteger): sequence of BigInteger;
@@ -5919,10 +6138,13 @@ end;
 
 function Arr<T>(a: sequence of T): array of T;
 begin
-  Result := a.ToArray;
+  Result := System.Linq.Enumerable.ToArray&<T>(a);
 end;
 
-function Arr(a: IntRange): array of integer := a.ToArray;
+function Arr(a: IntRange): array of integer;
+begin
+  Result := System.Linq.Enumerable.ToArray&<integer>(a);
+end;
 
 function Arr(a: CharRange): array of char;
 begin
@@ -6098,24 +6320,24 @@ function SeqGen<T>(count: integer; first: T; next: T->T): sequence of T;
 begin
   if count < 1 then
     RaiseArgumentOutOfRangeException(PARAMETER_MUST_BE_GREATER_THAN0_0, 'count');
-  Result := Iterate(first, next).Take(count);
+  Result := System.Linq.Enumerable.Take&<T>(Iterate(first, next), count);
 end;
 
 function SeqGen<T>(count: integer; first, second: T; next: (T,T) ->T): sequence of T;
 begin
   if count < 1 then
     RaiseArgumentOutOfRangeException(PARAMETER_MUST_BE_GREATER_THAN0_0, 'count');
-  Result := Iterate(first, second, next).Take(count);
+  Result := System.Linq.Enumerable.Take&<T>(Iterate(first, second, next), count);
 end;
 
 function SeqWhile<T>(first: T; next: T->T; pred: T->boolean): sequence of T;
 begin
-  Result := Iterate(first, next).TakeWhile(pred);
+  Result := System.Linq.Enumerable.TakeWhile&<T>(Iterate(first, next), pred);
 end;
 
 function SeqWhile<T>(first, second: T; next: (T,T) ->T; pred: T->boolean): sequence of T;
 begin
-  Result := Iterate(first, second, next).TakeWhile(pred);
+  Result := System.Linq.Enumerable.TakeWhile&<T>(Iterate(first, second, next), pred);
 end;
 
 function ArrGen<T>(count: integer; first: T; next: T->T): array of T;
@@ -6206,7 +6428,7 @@ begin
   if count < 0 then
     RaiseArgumentOutOfRangeException(PARAMETER_MUST_BE_GREATER_EQUAL0_0, 'count');
   CheckNotNil(f, FUNCTION_IS_NIL);
-  Result := Range(from, count + from - 1).Select(f)
+  for var _idx := from to count + from - 1 do yield f(_idx);
 end;
 
 function SeqGen<T>(count: integer; f: integer->T): sequence of T;
@@ -6214,7 +6436,7 @@ begin
   if count < 0 then
     RaiseArgumentOutOfRangeException(PARAMETER_MUST_BE_GREATER_EQUAL0_0, 'count');
   CheckNotNil(f, FUNCTION_IS_NIL);
-  Result := Range(0, count - 1).Select(f)
+  for var _idx := 0 to count - 1 do yield f(_idx);
 end;
 
 function ReadArrInteger(n: integer): array of integer;
@@ -6304,7 +6526,7 @@ end;
 
 function ReadSeqInteger(n: integer): sequence of integer;
 begin
-  Result := Range(1, n).Select(i -> ReadInteger());
+  for var _i := 1 to n do yield ReadInteger();
 end;
 
 function ReadSeqInteger(prompt: string; n: integer): sequence of integer;
@@ -6315,7 +6537,7 @@ end;
 
 function ReadSeqReal(n: integer): sequence of real;
 begin
-  Result := Range(1, n).Select(i -> ReadReal());
+  for var _i := 1 to n do yield ReadReal();
 end;
 
 function ReadSeqReal(prompt: string; n: integer): sequence of real;
@@ -6326,7 +6548,7 @@ end;
 
 function ReadSeqString(n: integer): sequence of string;
 begin
-  Result := Range(1, n).Select(i -> ReadString());
+  for var _i := 1 to n do yield ReadString();
 end;
 
 function ReadSeqString(prompt: string; n: integer): sequence of string;
@@ -6411,13 +6633,13 @@ function Lst<T>(params a: array of T): List<T> := new List<T>(a);
 
 function Lst<T>(a: sequence of T): List<T> := new List<T>(a);
 
-function Lst(a: IntRange): List<integer> := a.ToList;
+function Lst(a: IntRange): List<integer> := System.Linq.Enumerable.ToList&<integer>(a);
 
-function Lst(a: CharRange): List<char> := a.ToList;
+function Lst(a: CharRange): List<char> := System.Linq.Enumerable.ToList&<char>(a);
 
-function LstStr(params a: array of string): List<string> := a.ToList;
+function LstStr(params a: array of string): List<string> := new List<string>(a);
 
-function LstInt(params a: array of integer): List<integer> := a.ToList;
+function LstInt(params a: array of integer): List<integer> := new List<integer>(a);
 
 
 function LLst<T>(params a: array of T): LinkedList<T> := new LinkedList<T>(a);
@@ -6464,11 +6686,19 @@ begin
     Result.Add(pairs[i][0], pairs[i][1]);
 end;
 
-function Dict<TKey, TVal>(pairs: sequence of KeyValuePair<TKey, TVal>): Dictionary<TKey, TVal> 
-  := Dict(pairs.ToArray); 
+function Dict<TKey, TVal>(pairs: sequence of KeyValuePair<TKey, TVal>): Dictionary<TKey, TVal>;
+begin
+  Result := new Dictionary<TKey, TVal>();
+  foreach var _p in pairs do
+    Result.Add(_p.Key, _p.Value);
+end;
 
-function Dict<TKey, TVal>(pairs: sequence of (TKey, TVal)): Dictionary<TKey, TVal> 
-  := Dict(pairs.ToArray); 
+function Dict<TKey, TVal>(pairs: sequence of (TKey, TVal)): Dictionary<TKey, TVal>;
+begin
+  Result := new Dictionary<TKey, TVal>();
+  foreach var _p in pairs do
+    Result.Add(_p[0], _p[1]);
+end;
   
 function Dict<TKey, TVal>(keys: sequence of TKey; values: sequence of TVal): Dictionary<TKey, TVal>;
 begin
@@ -7979,7 +8209,7 @@ begin
     else    
       for var i:=0 to o.Length-2 do
         PABCSystem.Write(Self, o[i]);
-    PABCSystem.Write(Self, o.Last);
+    PABCSystem.Write(Self, o[o.Length - 1]);
   end;
   PABCSystem.Writeln(Self);
 end;
@@ -9097,7 +9327,7 @@ begin
     if f is TypedFile then
     begin
       f.bw.Write(byte(string(val).Length));
-      f.bw.Write(string(val).ToArray);
+      f.bw.Write(string(val).ToCharArray);
     end
     else f.bw.Write(string(val));
     if (f is TypedFile) and ((f as TypedFile).offsets <> nil) and ((f as TypedFile).offsets.Length > 0) then
@@ -10115,14 +10345,14 @@ function Min<T>(params a: array of T): T;
 begin
   if a.Length<1 then
     RaiseArgumentException(COUNT_PARAMS_MINFUN_MUSTBE_GREATER0);
-  Result := a.Min;
+  Result := System.Linq.Enumerable.Min&<T>(a);
 end;
-  
+
 function Max<T>(params a: array of T): T;
 begin
   if a.Length<1 then
     RaiseArgumentException(COUNT_PARAMS_MAXFUN_MUSTBE_GREATER0);
-  Result := a.Max;
+  Result := System.Linq.Enumerable.Max&<T>(a);
 end;
 
 function Odd(i: byte) := (i mod 2) <> 0;

@@ -434,24 +434,23 @@ namespace PascalABCCompiler
                     StringResourcesLanguage.CurrentLanguageName = StringResourcesLanguage.AccessibleLanguages[StringResourcesLanguage.TwoLetterISOLanguages.IndexOf("en")];
                 else
                     StringResourcesLanguage.CurrentLanguageName = StringResourcesLanguage.AccessibleLanguages[StringResourcesLanguage.TwoLetterISOLanguages.IndexOf(StringResourcesLanguage.CurrentTwoLetterISO)];
-                
             }
-                
+
 
             for (int i = 0; i < ConsoleBufferWidth-1; i++)
               BlankString += " ";
 
-            Console.ForegroundColor = ConsoleColor.White;
+            if (!NoConsole) Console.ForegroundColor = ConsoleColor.White;
             OutputDirectory="";
-            
-            Console.Title = StringResourcesGet("STARTING");
+
+            if (!NoConsole) Console.Title = StringResourcesGet("STARTING");
 
             // загрузка всех парсеров и других составляющих языков  EVA
             // Loading all parsers and other components of the EVA languages
             Languages.Integration.LanguageIntegrator.LoadAllLanguages();
             
             Reset();
-            Console.Title = Compiler.Banner;
+            if (!NoConsole) Console.Title = Compiler.Banner;
             
 
             //Console.CursorLeft = (Console.BufferWidth - Compiler.Banner.Length) / 2;
@@ -517,7 +516,12 @@ namespace PascalABCCompiler
 
         private static int ConsoleBufferWidth
         {
-            get { return NoConsole ? DefaultConsoleBufferWidth : Console.BufferWidth; }
+            get
+            {
+                if (NoConsole) return DefaultConsoleBufferWidth;
+                try { return Console.BufferWidth; }
+                catch { NoConsole = true; return DefaultConsoleBufferWidth; }
+            }
         }
 
 /*        public class MainClass

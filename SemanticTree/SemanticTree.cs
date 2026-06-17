@@ -6,34 +6,34 @@ using System.Collections.Generic;
 namespace PascalABCCompiler.SemanticTree
 {
 
-	//Вид объекта.
-	//basic-базовый объект, не определяемый в программе, например метод сложения двух целых чисел.
-	//common-обычный тип, метод и т.д., определяемый пользователем.
-	//compiled-тип, метод или другой узел, определяемый пользователем.
+	//Kind of object.
+	//basic - a basic object not defined in the program, for example the addition of two integers.
+	//common - an ordinary type, method, etc., defined by the user.
+	//compiled - a type, method, or other node defined by the user.
 	public enum node_kind {basic,common,compiled,indefinite};
 
-	//Уровень доступа класса. Хотя зачем я это пишу? И так понятно из названия.
+	//Access level of the class. Though why am I writing this? The name already makes it clear.
 	public enum type_access_level {tal_public,tal_internal};
 
-	//Как мы будем представлять ссылочные и размерные типы?
+	//How shall we represent reference and value types?
 	//public enum reference_or_value_type {reference_type,value_type};
 
-	//Расположение элемента - в функции, в классе, в пространстве имен.
+	//Location of an element - inside a function, a class, or a namespace.
 	public enum node_location_kind {in_function_location,in_class_location,in_namespace_location, in_block_location, indefinite};
 
-	//Уровень доступа к элементам класса.
+	//Access level for class members.
     public enum field_access_level { fal_private, fal_internal, fal_protected, fal_public };
 	
-	//Обычный, статический или виртуальный элемент класса.
+	//Ordinary, static, or virtual class member.
 	public enum polymorphic_state {ps_static,ps_common,ps_virtual,ps_virtual_abstract};
 
     public enum type_special_kind { none_kind, not_set_kind, array_kind, enum_kind, typed_file, binary_file, short_string, array_wrapper, record, set_type, base_set_type, diap_type, text_file };
 	
     public enum attribute_qualifier_kind {none_kind, return_kind, assembly_kind, param_kind, type_kind, field_kind, event_kind, property_kind, method_kind}
-    //Тип передачи параметра - по ссылке или по значению.
+    //Parameter passing mode - by reference or by value.
     public enum parameter_type { value, var, cnst };
 
-    //Тип базовой функции.
+    //Type of a basic function.
     public enum basic_function_type
     {
         none,
@@ -60,8 +60,8 @@ namespace PascalABCCompiler.SemanticTree
         ultob, ultosb, ultos, ultous, ultoi, ultoui, ultol, ultochar, ultof, ultod, //ulong to ...
         ftod, ftob, ftosb, ftos, ftous, ftoi, ftoui, ftol, ftoul, ftochar, //float to ...
         dtob, dtosb, dtos, dtous, dtoi, dtoui, dtol, dtoul, dtof, dtochar,
-        objassign, objeq, objnoteq, //присваивание и эквивалентность объектов по ссылке.
-                                    //write,writei,writed,writec,writeb,read,readi,readd,readc,readb,expd,absd,absi //temporary functions (Нужны только на начальном этапе отладки. Потом обязательно удалить.)
+        objassign, objeq, objnoteq, //assignment and reference equality of objects.
+                                    //write,writei,writed,writec,writeb,read,readi,readd,readc,readb,expd,absd,absi //temporary functions (Needed only in the early debugging stage. Must be removed later.)
         objtoobj, boolinc, booldec, boolsinc, boolsdec, booltoi, enumgr, enumgreq, enumsm, enumsmeq,
         booltob, booltosb, booltos, booltous, booltoui, booltol, booltoul,
         ltop, ptol, enumsand, enumsor, enumsxor
@@ -71,44 +71,44 @@ namespace PascalABCCompiler.SemanticTree
 
     public enum generic_parameter_kind { gpk_none, gpk_class, gpk_value };
 
-	//Документ в котором описан этот узел.
+	//The document in which this node is described.
 	public interface IDocument
 	{
-		//Полный путь к файлу.
+		//Full path to the file.
 		string file_name
 		{
 			get;
 		}
 	}
 
-	//Документ и позиция в которой описан этот узел.
+	//The document and position in which this node is described.
     public interface ILocation
 	{
-		//Строка, в которой распологается начало данного элемента.
+		//The line on which the beginning of this element is located.
 		int begin_line_num
 		{
 			get;
 		}
 
-		//Столбец, в которой распологается начало данного элемента.
+		//The column in which the beginning of this element is located.
 		int begin_column_num
 		{
 			get;
 		}
 
-		//Строка, в которой распологается конец данного элемента.
+		//The line on which the end of this element is located.
 		int end_line_num
 		{
 			get;
 		}
 
-		//Столбец, в которой распологается конец данного элемента.
+		//The column in which the end of this element is located.
 		int end_column_num
 		{
 			get;
 		}
 
-		//Документ, в котором определен данный элемент дерева.
+		//The document in which this tree element is defined.
 		string file_name
 		{
 			get;
@@ -123,13 +123,13 @@ namespace PascalABCCompiler.SemanticTree
 		}
 	}
 
-	//Базовый интерфейс для всех интерфейсов узлов дерева.
+	//Base interface for all tree node interfaces.
 	public interface ISemanticNode
 	{
 		void visit(ISemanticVisitor visitor);
 	}
 
-	//Базовый класс, для пердставления определений в программе (определений типов, переменных и т.д.). Никогда не создается.
+	//Base class for representing definitions in a program (type definitions, variable definitions, etc.). Never instantiated directly.
 	public interface IDefinitionNode : ISemanticNode
 	{
 		string Documentation
@@ -142,22 +142,22 @@ namespace PascalABCCompiler.SemanticTree
 		}
 	}
 
-	//Базовый интерфейс для классов, которые описывают типы. Никогда не создается.
+	//Base interface for classes that describe types. Never instantiated directly.
 	public interface ITypeNode : IDefinitionNode
 	{
-		//Вид узла - базовый(basic), обычный (common) или экспортируемый (compiled).
+		//Kind of node - basic, common, or compiled (exported).
 		node_kind node_kind
 		{
 			get;
 		}
 
-		//Имя типа. Для языков не чувствительных к регистрам хранит имя в том виде, в каком тип объявлен.
+		//Name of the type. For case-insensitive languages, stores the name as it was declared.
 		string name
 		{
 			get;
 		}
 
-		//Базовый тип для данного типа. Для object-а =null.
+		//Base type for this type. For object, equals null.
 		ITypeNode base_type
 		{
 			get;
@@ -219,7 +219,7 @@ namespace PascalABCCompiler.SemanticTree
             get;
         }
 
-        //Является ли generic-параметром
+        //Whether this is a generic parameter
         bool is_generic_parameter
         {
             get;
@@ -235,13 +235,13 @@ namespace PascalABCCompiler.SemanticTree
             get;
         }
 
-        //Зависит ли от некоторого неопределенного типа
+        //Whether this depends on some indefinite type
         bool depended_from_indefinite
         {
             get;
         }
 
-        //Описание generic-типа, содержащее данный параметр
+        //The generic type definition that contains this parameter
         ICommonTypeNode generic_type_container
         {
             get;
@@ -254,12 +254,12 @@ namespace PascalABCCompiler.SemanticTree
         //\ssyy
 	}
 
-	//Интерфейс для описания базовых типов.
-	//При генерации .Net кода этот класс не нужен. Он может пригодится, например для генерации машинного кода.
-	//Там он может быть использован, например для представления целых чисел.
-	//Хотя возможно в этом случае удобнее использовать compiled_type_node.
-	//Для него могут быть не определены свойства name и base_type.
-	//В общем когда понадобится, тогда и будем думать. Пока этот интерфейс нигде не должен использоваться.
+	//Interface for describing basic types.
+	//This class is not needed for .NET code generation. It may be useful, for example, for native code generation.
+	//There it could be used, for example, to represent integers.
+	//Although in that case it may be more convenient to use compiled_type_node.
+	//The name and base_type properties may be undefined for it.
+	//In general, we'll think about it when needed. For now this interface should not be used anywhere.
 	public interface IBasicTypeNode : ITypeNode
 	{
 
@@ -273,16 +273,16 @@ namespace PascalABCCompiler.SemanticTree
         }
     }
 
-    //Синонимы типов, определяемые пользователем в программе.
+    //Type synonyms defined by the user in the program.
     public interface ITypeSynonym : IDefinitionNode, ILocated
     {
-        //Имя типа. Для языков не чувствительных к регистрам хранит имя в том виде, в каком тип объявлен.
+        //Name of the type. For case-insensitive languages, stores the name as it was declared.
         string name
         {
             get;
         }
 
-        //Тип, которому даётся синоним
+        //The type being aliased
         ITypeNode original_type
         {
             get;
@@ -303,7 +303,7 @@ namespace PascalABCCompiler.SemanticTree
         }
     }
 
-    //Интерфейс для generic-типов
+    //Interface for generic types
     public interface IGenericInstance
     {
         List<ITypeNode> generic_parameters
@@ -312,7 +312,7 @@ namespace PascalABCCompiler.SemanticTree
         }
     }
 
-    //Интерфейс для generic-инстанций
+    //Interface for generic instantiations
     public interface IGenericTypeInstance: IGenericInstance, ICommonTypeNode
     {
         ITypeNode original_generic
@@ -346,38 +346,38 @@ namespace PascalABCCompiler.SemanticTree
     {
     }
 
-    //Описывет обычные типы, определяемые пользователем в программе.
+    //Describes ordinary types defined by the user in the program.
 	public interface ICommonTypeNode : ITypeNode, INamespaceMemberNode, ILocated
 	{
         bool IsSealed
         {
             get;
         }
-		//Тип public или internal.
+		//Type is public or internal.
 		type_access_level type_access_level
 		{
 			get;
 		}
 
-		//Методы типа.
+		//Methods of the type.
 		ICommonMethodNode[] methods
 		{
 			get;
 		}
 
-		//Поля типа.
+		//Fields of the type.
 		ICommonClassFieldNode[] fields
 		{
 			get;
 		}
 
-		//Свойства типа.
+		//Properties of the type.
 		ICommonPropertyNode[] properties
 		{
 			get;
 		}
 
-        //Константы, определенные в типе.
+        //Constants defined in the type.
         IClassConstantDefinitionNode[] constants
         {
             get;
@@ -413,7 +413,7 @@ namespace PascalABCCompiler.SemanticTree
         	get;
         }
         
-        //(ssyy) Является ли описанием generic-типа
+        //(ssyy) Whether this is a generic type definition
         bool is_generic_type_definition
         {
             get;
@@ -435,18 +435,18 @@ namespace PascalABCCompiler.SemanticTree
         }
 	}
 
-    //Интерфейс для описания типов, экспортируемых из сборки.
-	//Для представления откомпилированных типов я обращаюсь непосредственно к System.Reflection.
-	//Это завязывает нашу систему на .Net. Можно избавится от этого с помощью введения дополнительного уровня абстракции.
-	//Для этого нужно определить, какие данные нам нужны от откомпилированных типов, и сделать еще одну прослойку
-	//между System.Reflection и нашими типами. Тогда при генерации кода под другую платформу (например машинного кода)
-	//нужно будет только привязать прослойку к другому источнику данных. Например, информация о типах будет
-	//браться не из сборок, а из dll-библиотек. Я не могу сейчас сделать эту прослойку, т.к. я пока не определил
-	//какие запросы нужны к откомпилированным модулям. Поэтому пока я использую System.Reflection в котором
-	//вроде все есть. Потом нужно будет обсудить вопрос создания этой прослойки.
+    //Interface for describing types exported from an assembly.
+	//To represent compiled types I access System.Reflection directly.
+	//This ties our system to .NET. It is possible to remove this dependency by introducing an additional abstraction layer.
+	//To do that we need to determine what data we require from compiled types and create another intermediary layer
+	//between System.Reflection and our types. Then when generating code for another platform (e.g. native code)
+	//we would only need to bind the intermediary layer to a different data source. For example, type information would
+	//come not from assemblies but from DLL libraries. I cannot create this layer right now because I have not yet defined
+	//what queries are needed against compiled modules. For now I am using System.Reflection which seems to have everything.
+	//The question of creating this intermediary layer will need to be discussed later.
 	public interface ICompiledTypeNode : ITypeNode
 	{
-		//Откомпилированный тип.
+		//The compiled type.
 		System.Type compiled_type
 		{
 			get;
@@ -458,7 +458,7 @@ namespace PascalABCCompiler.SemanticTree
 		}
 	}
 
-	//Интерфейс, представляющий индексируемый с 0 массив.
+	//Interface representing a zero-indexed array.
 	public interface IRefTypeNode : ITypeNode
 	{
 		ITypeNode pointed_type
@@ -506,9 +506,9 @@ namespace PascalABCCompiler.SemanticTree
 		}
 	}
 
-	//Базовый интерфейс для statement-ов. Объекты, реализующие только этот интерфейс нигде не должны создаваться.
-	//Должны создаваться классы, реализующие интерфейсы производные от данного интерфейса.
-	//Звучит очень запутано, но вобщем то, что написано выше не очень важно :-).
+	//Base interface for statements. Objects implementing only this interface should never be instantiated.
+	//Only classes implementing interfaces derived from this interface should be instantiated.
+	//Sounds very confusing, but in general what is written above is not very important :-).
 	public interface IStatementNode : ISemanticNode, ILocated
 	{
 
@@ -522,10 +522,10 @@ namespace PascalABCCompiler.SemanticTree
         }
     }
 
-	//Базовый интерфейс для выражений.
+	//Base interface for expressions.
 	public interface IExpressionNode : IStatementNode
 	{
-		//Тип выражения.
+		//Type of the expression.
 		ITypeNode type
 		{
 			get;
@@ -537,25 +537,25 @@ namespace PascalABCCompiler.SemanticTree
 		}
 	}
 
-	//Базовый интерфейс для вызовов функций. Нигде не создается.
+	//Base interface for function calls. Never instantiated.
 	public interface IFunctionCallNode : IExpressionNode
 	{
-		//Список фактических параметров. Количество и типы формальных и фактических параметров сверяется
-		//на этапе построения семантического дерева. При необходимости при построении семантического дерева
-		//вставляются узлы преобрызования типов.
+		//List of actual parameters. The count and types of formal and actual parameters are verified
+		//during semantic tree construction. Type conversion nodes are inserted into the semantic tree
+		//as needed during construction.
 		IExpressionNode[] real_parameters
 		{
 			get;
 		}
 
-		//Вызываемый метод.
+		//The method being called.
 		IFunctionNode function
 		{
 			get;
 		}
 
         //ssyy
-        //Нужно для генерации унаследованных интерфейсных функций
+        //Needed for generating inherited interface functions
         bool last_result_function_call
         {
             get;
@@ -565,10 +565,10 @@ namespace PascalABCCompiler.SemanticTree
 
 	}
 
-	//Вызов базового метода.
+	//Call to a basic method.
 	public interface IBasicFunctionCallNode : IFunctionCallNode
 	{
-		//Вызываемый метод.
+		//The method being called.
 		IBasicFunctionNode basic_function
 		{
 			get;
@@ -585,49 +585,49 @@ namespace PascalABCCompiler.SemanticTree
 
     }
 
-	//Вызов функции, определенной в пространстве имен.
+	//Call to a function defined in a namespace.
 	public interface ICommonNamespaceFunctionCallNode : IFunctionCallNode
 	{
-		//Вызываемый метод.
+		//The method being called.
 		ICommonNamespaceFunctionNode namespace_function
 		{
 			get;
 		}
 	}
 
-	//Вызов функции, определенной в другой функции.
+	//Call to a function defined inside another function.
 	public interface ICommonNestedInFunctionFunctionCallNode : IFunctionCallNode
 	{
-		//Вызываемый метод.
+		//The method being called.
 		ICommonNestedInFunctionFunctionNode common_function
 		{
 			get;
 		}
 
-		//Статическая глубина вложенной функции.
+		//Static nesting depth of the nested function.
 		int static_depth
 		{
 			get;
 		}
 	}
 
-	//Вызов метода класса.
+	//Call to a class method.
     public interface ICommonMethodCallNode : INonStaticMethodCallNode
 	{
-		//Вызываемый метод.
+		//The method being called.
 		ICommonMethodNode method
 		{
 			get;
 		}
 
-		//Экземпляр класса, данный метод которого нужно вызвать.
+		//The class instance whose method is to be called.
 		IExpressionNode obj
 		{
 			get;
 		}
 	}
 
-	//Узел, соответствующий указателю this в программе.
+	//Node corresponding to the 'this' pointer in the program.
 	public interface IThisNode : IExpressionNode
 	{
 	}
@@ -674,23 +674,23 @@ namespace PascalABCCompiler.SemanticTree
         }
     }
 
-	//Вызов статичекого метода класса.
+	//Call to a static class method.
     public interface ICommonStaticMethodCallNode : IFunctionCallNode
 	{
-		//Вызываемый метод.
+		//The method being called.
 		ICommonMethodNode static_method
 		{
 			get;
 		}
 
-		//Тип, статический метод которого вызываем.
+		//The type whose static method is being called.
 		ICommonTypeNode common_type
 		{
 			get;
 		}
 	}
 
-	//Вызов конструктора common-класса.
+	//Call to a common-class constructor.
 	public interface ICommonConstructorCall : ICommonStaticMethodCallNode
 	{
         //ssyy
@@ -698,16 +698,16 @@ namespace PascalABCCompiler.SemanticTree
         //\ssyy
 	}
 
-	//Вызов откомпилированного метода.
+	//Call to a compiled method.
     public interface ICompiledMethodCallNode : INonStaticMethodCallNode
 	{
-		//Вызываемый метод.
+		//The method being called.
 		ICompiledMethodNode compiled_method
 		{
 			get;
 		}
 
-		//Экземпляр класса, данный метод которого нужно вызвать.
+		//The class instance whose method is to be called.
 		IExpressionNode obj
 		{
 			get;
@@ -715,16 +715,16 @@ namespace PascalABCCompiler.SemanticTree
 
     }
 
-	//Вызов статического метода, откомптлированного класса.
+	//Call to a static method of a compiled class.
     public interface ICompiledStaticMethodCallNode : IFunctionCallNode
 	{
-		//Вызываемый метод.
+		//The method being called.
 		ICompiledMethodNode static_method
 		{
 			get;
 		}
 
-		//Тип, статический метод которого мы вызываем.
+		//The type whose static method we are calling.
 		ICompiledTypeNode compiled_type
 		{
 			get;
@@ -736,7 +736,7 @@ namespace PascalABCCompiler.SemanticTree
         }
 	}
 
-	//Вызов конструктора откомпилированного метода.
+	//Call to a compiled type's constructor.
 	public interface ICompiledConstructorCall : IFunctionCallNode
 	{
 		ICompiledConstructorNode constructor
@@ -754,118 +754,118 @@ namespace PascalABCCompiler.SemanticTree
         //\ssyy
 	}
 
-	//Базовый интерфейс для описания функций. Никогда не создается.
+	//Base interface for describing functions. Never instantiated.
 	public interface IFunctionNode : IDefinitionNode
 	{
-		//Вид узла - базовый (basic), обычный (common) или экспортируемый (compiled).
+		//Kind of node - basic, common, or compiled (exported).
 		node_kind node_kind
 		{
 			get;
 		}
 
-		//Список формальных параметров функции.
+		//List of formal parameters of the function.
 		IParameterNode[] parameters
 		{
 			get;
 		}
 
-		//Тип возвращаемого значения функции.
+		//Return value type of the function.
 		ITypeNode return_value_type
 		{
 			get;
 		}
 
-		//Имя функции. Для языков не чувствительных к регистру - в том виде, в котором функция определена.
+		//Name of the function. For case-insensitive languages - as the function was defined.
 		string name
 		{
 			get;
 		}
 
-		//Расположение функции - в функции, в классе, в пространстве имен.
+		//Location of the function - inside a function, a class, or a namespace.
 		node_location_kind node_location_kind
 		{
 			get;
 		}
 
-        //Является ли generic-функцией
+        //Whether this is a generic function
         bool is_generic_function
         {
             get;
         }
 
-        //Число типов-параметров generic-функции. 0 для не-generic.
+        //Number of type parameters for a generic function. 0 for non-generic.
         int generic_parameters_count
         {
             get;
         }
     }
 
-	//Интерфейс члена класса.
+	//Interface for class members.
 	public interface IClassMemberNode
 	{
-		//Тип, содержащий этот член класса.
+		//The type containing this class member.
 		ITypeNode comperehensive_type
 		{
 			get;
 		}
 
-		//Статический, обычный или виртуальный метод.
+		//Static, common, or virtual method.
 		polymorphic_state polymorphic_state
 		{
 			get;
 		}
 
-		//Уровень доступа к члену класса.
+		//Access level for the class member.
 		field_access_level field_access_level
 		{
 			get;
 		}
 	}
 
-	//Интерфейс члена откомпилированного класса.
+	//Interface for members of a compiled class.
 	public interface ICompiledClassMemberNode : IClassMemberNode
 	{
-		//Тип, содержащий член класса.
+		//The type containing this class member.
 		ICompiledTypeNode comprehensive_type
 		{
 			get;
 		}
 	}
 
-	//Интерфейс члена обычного класса.
+	//Interface for members of a common class.
 	public interface ICommonClassMemberNode : IClassMemberNode
 	{
-		//Тип, содержащий член класса.
+		//The type containing this class member.
 		ICommonTypeNode common_comprehensive_type
 		{
 			get;
 		}
 	}
 
-	//Интерфейс переменной или функции, определенной внутри функции.
+	//Interface for a variable or function defined inside a function.
 	public interface IFunctionMemberNode
 	{
-		//Функция, содержащая этот обьъект.
+		//The function containing this object.
 		ICommonFunctionNode function
 		{
 			get;
 		}
 	}
 
-	//Интерфейс переменной или функции, определенной в пространстве имен.
+	//Interface for a variable or function defined in a namespace.
 	public interface INamespaceMemberNode
 	{
-		//Пространство имен, в котором определен элемент.
+		//The namespace in which this element is defined.
 		ICommonNamespaceNode comprehensive_namespace
 		{
 			get;
 		}
 	}
 
-	//Класс для описания базовых, нигде не определенных функций (например, сложение двух целых чисел).
+	//Class for describing basic functions that are not defined anywhere (e.g., addition of two integers).
 	public interface IBasicFunctionNode : IFunctionNode
 	{
-		//Какая именно это базовая функция.
+		//Which specific basic function this is.
 		basic_function_type basic_function_type
 		{
 			get;
@@ -877,7 +877,7 @@ namespace PascalABCCompiler.SemanticTree
         None, New, Dispose, NewArray
     }
 
-	//Интерфейс для описания функции, определяемой пользователем.
+	//Interface for describing a user-defined function.
 	public interface ICommonFunctionNode : IFunctionNode, ILocated
 	{
         SpecialFunctionKind SpecialFunctionKind
@@ -890,47 +890,47 @@ namespace PascalABCCompiler.SemanticTree
         	get;
         }
         
-		//Список переменных, определяемых в функции.
+		//List of variables defined in the function.
 		ILocalVariableNode[] var_definition_nodes
 		{
 			get;
 		}
 
-		//Список вложенных функций.
+		//List of nested functions.
 		ICommonNestedInFunctionFunctionNode[] functions_nodes
 		{
 			get;
 		}
 
-		//Код функции.
+		//The function body.
 		IStatementNode function_code
 		{
 			get;
 		}
 
-		//Переменная, которая содержит возвращаемое значение функции. Для процедур - null.
+		//The variable that holds the function's return value. For procedures - null.
 		ILocalVariableNode return_variable
 		{
 			get;
 		}
 
-        //Константы, определенные в функции.
+        //Constants defined in the function.
         ICommonFunctionConstantDefinitionNode[] constants
         {
             get;
         }
 
-        //Generic-параметры функции
+        //Generic parameters of the function
         List<ICommonTypeNode> generic_params
         {
             get;
         }
     }
 
-	//Функция, определенная непосредственно в пространстве имен.
+	//A function defined directly in a namespace.
 	public interface ICommonNamespaceFunctionNode : ICommonFunctionNode, INamespaceMemberNode
 	{
-		//Прстранство имен, в котором определена эта функция.
+		//The namespace in which this function is defined.
 		ICommonNamespaceNode namespace_node
 		{
 			get;
@@ -942,13 +942,13 @@ namespace PascalABCCompiler.SemanticTree
         }
 	}
 
-	//Функция, определенная в другой функции.
+	//A function defined inside another function.
 	public interface ICommonNestedInFunctionFunctionNode : ICommonFunctionNode, IFunctionMemberNode
 	{
 	
 	}
 
-	//Метод класса, определяемый пользователем.
+	//A user-defined class method.
 	public interface ICommonMethodNode : ICommonFunctionNode, ICommonClassMemberNode
 	{
 		bool is_constructor
@@ -975,10 +975,10 @@ namespace PascalABCCompiler.SemanticTree
 
     }
 
-	//Класс для описания экспортируемых (compiled) функций.
+	//Class for describing exported (compiled) functions.
 	public interface ICompiledMethodNode : IFunctionNode, ICompiledClassMemberNode
 	{
-		//Откомпилированный метод.
+		//The compiled method.
 		System.Reflection.MethodInfo method_info
 		{
 			get;
@@ -990,7 +990,7 @@ namespace PascalABCCompiler.SemanticTree
         }
 	}
 
-	//Вызов конструктора откомпилированного типа.
+	//Call to a compiled type's constructor.
 	public interface ICompiledConstructorNode : IFunctionNode, ICompiledClassMemberNode
 	{
 		System.Reflection.ConstructorInfo constructor_info
@@ -999,71 +999,71 @@ namespace PascalABCCompiler.SemanticTree
 		}
 	}
 
-	//Интерфейс для описания конструкции if.
+	//Interface for describing an if statement.
 	public interface IIfNode : IStatementNode
 	{
-		//Условие.
+		//The condition.
 		IExpressionNode condition
 		{
 			get;
 		}
 
-		//Тело then.
+		//The then body.
 		IStatementNode then_body
 		{
 			get;
 		}
 
-		//Тело else. Если if без then это свойство = null.
+		//The else body. If the if has no else, this property is null.
 		IStatementNode else_body
 		{
 			get;
 		}
 	}
 
-	//Интерфейс для конструкции while.
+	//Interface for a while statement.
 	public interface IWhileNode : IStatementNode
 	{
-		//Условие.
+		//The condition.
 		IExpressionNode condition
 		{
 			get;
 		}
 
-		//Тело while.
+		//The while body.
 		IStatementNode body
 		{
 			get;
 		}
 	}
 
-	//Интерфейс для конструкции repeat.
+	//Interface for a repeat statement.
 	public interface IRepeatNode : IStatementNode
 	{
-		//Тело do .. while (repeat .. until).
+		//The body of do..while (repeat..until).
 		IStatementNode body
 		{
 			get;
 		}
 
-		//Условие.
+		//The condition.
 		IExpressionNode condition
 		{
 			get;
 		}
 	}
 
-	//Класс для описания конструкции for. 
-	//For - C++/C# - овский. Для моделирования паскалевского for он преобразуется в эту конструкцию.
+	//Class for describing a for statement.
+	//This is a C++/C#-style for. Pascal's for loop is converted into this construct.
 	public interface IForNode : IStatementNode
 	{
-		//Инициализация переменных цикла.
+		//Loop variable initialization.
 		IStatementNode initialization_statement
 		{
 			get;
 		}
 
-		//Условие продолжения цикла.
+		//Loop continuation condition.
 		IExpressionNode while_expr
 		{
 			get;
@@ -1074,13 +1074,13 @@ namespace PascalABCCompiler.SemanticTree
 			get;
 		}
 		
-		//Изменение счетчиков цикла.
+		//Loop counter update.
 		IStatementNode increment_statement
 		{
 			get;
 		}
 
-		//Тело цикла.
+		//Loop body.
 		IStatementNode body
 		{
 			get;
@@ -1236,22 +1236,22 @@ namespace PascalABCCompiler.SemanticTree
 	{
 	}
 
-	//Один из вариантов констракции swithc.
+	//One of the variants of the switch construct.
 	public interface ICaseVariantNode : IStatementNode
 	{
-		//Выражения, при которых нужно исполгить код, соответствующий этому узлу.
+		//Expressions for which the code corresponding to this node should be executed.
 		IExpressionNode[] expressions
 		{
 			get;
 		}
 
-		//Диапазоны, при попадании в которые нужно исполнить код, соответствующий этому узлу.
+		//Ranges; if the value falls within them, the code corresponding to this node should be executed.
 		IRangExpression[] ranges
 		{
 			get;
 		}
 
-		//Код этого узла.
+		//The code of this node.
 		IStatementNode statement
 		{
 			get;
@@ -1271,24 +1271,24 @@ namespace PascalABCCompiler.SemanticTree
 		}
 	}*/
 
-	//Интерфейс для описания списка statement-ов.
+	//Interface for describing a list of statements.
 	public interface IStatementsListNode : IStatementNode
 	{
         ILocalBlockVariableNode[] LocalVariables
         {
             get;
         }
-		//Список statement-ов.
+		//The list of statements.
 		IStatementNode[] statements
 		{
 			get;
 		}
-        //Положение левой логической скобки
+        //Position of the left logical bracket
         ILocation LeftLogicalBracketLocation
         {
 			get;
 		}
-        //Положение правой логической скобки
+        //Position of the right logical bracket
         ILocation RightLogicalBracketLocation
         {
 			get;
@@ -1360,7 +1360,7 @@ namespace PascalABCCompiler.SemanticTree
     }
     */
      
-	//Узел пространства имен.
+	//Namespace node.
 	public interface INamespaceNode : IDefinitionNode
 	{
 		string namespace_name
@@ -1369,22 +1369,22 @@ namespace PascalABCCompiler.SemanticTree
 		}
 	}
 	
-	//Узел пространства имен, определенного пользователем.
+	//Node for a user-defined namespace.
 	public interface ICommonNamespaceNode : INamespaceNode, ILocated
 	{
-		//Пространства имен, вложенные в это пространство имен.
+		//Namespaces nested inside this namespace.
 		ICommonNamespaceNode[] nested_namespaces
 		{
 			get;
 		}
 
-		//Пространство имен, в которое вложенно это пространство имен.
+		//The namespace in which this namespace is nested.
 		INamespaceNode comprehensive_namespace
 		{
 			get;
 		}
 
-		//Типы, описанные в namespace.
+		//Types described in this namespace.
 		ICommonTypeNode[] types
 		{
 			get;
@@ -1400,19 +1400,19 @@ namespace PascalABCCompiler.SemanticTree
             get;
         }
 
-		//Переменные, описанные в этом namespace.
+		//Variables described in this namespace.
 		ICommonNamespaceVariableNode[] variables
 		{
 			get;
 		}
 
-		//Функции, описанные в namespace.
+		//Functions described in this namespace.
 		ICommonNamespaceFunctionNode[] functions
 		{
 			get;
 		}
 
-		//Константы, описанные в namespace. Они должны экспортироваться как нибудь.
+		//Constants described in this namespace. They must be exported somehow.
 		INamespaceConstantDefinitionNode[] constants
 		{
 			get;
@@ -1429,16 +1429,16 @@ namespace PascalABCCompiler.SemanticTree
 		}
 	}
 
-	//Откомпилированное пространство имен.
+	//A compiled namespace.
 	public interface ICompiledNamespaceNode : INamespaceNode
 	{
 		
 	}
 
-    /// Базовый интерфейс для программ и dll.
+    /// Base interface for programs and DLLs.
     public interface IProgramBase : IDefinitionNode, ILocated
     {
-        //Пространства имен, содержащиеся в программе или dll.
+        //Namespaces contained in the program or DLL.
         ICommonNamespaceNode[] namespaces
         {
             get;
@@ -1450,40 +1450,40 @@ namespace PascalABCCompiler.SemanticTree
         }
     }
 
-	//Узел dll библиотеки.
+	//DLL library node.
 	public interface IDllNode : IProgramBase
 	{
-		//Метод инициализации dll.
+		//DLL initialization method.
 		ICommonNamespaceFunctionNode initialization_function
 		{
 			get;
 		}
 
-		//Метод финализации dll.
+		//DLL finalization method.
 		ICommonNamespaceFunctionNode finalization_function
 		{
 			get;
 		}
 	}
 
-	//Корневой узел программы.
+	//Root node of the program.
 	public interface IProgramNode : IProgramBase
 	{
-		//Главная функция. Ее выполнение равносильно выполнению программы.
-		//Она включает вызовы методов инициализации модулей (в начале), выполнение основной программы
-		//и вызовы методов финализации модулей.
+		//The main function. Executing it is equivalent to executing the program.
+		//It includes calls to module initialization methods (at the start), execution of the main program body,
+		//and calls to module finalization methods.
 		ICommonNamespaceFunctionNode main_function
 		{
 			get;
 		}
 
-        //Инстанции generic-типов, использующиеся в программе.
+        //Instantiations of generic types used in the program.
         List<IGenericTypeInstance> generic_type_instances
         {
             get;
         }
 
-        //Инстанции generic-типов, использующиеся в программе.
+        //Instantiations of generic function instances used in the program.
         List<IGenericFunctionInstance> generic_function_instances
         {
             get;
@@ -1495,13 +1495,13 @@ namespace PascalABCCompiler.SemanticTree
         }
     }
 
-	//Тип выражений, которые могут возвращать адрес (например переменная).
+	//Type of expressions that can return an address (e.g., a variable).
 	public interface IAddressedExpressionNode : IExpressionNode
 	{
 		
 	}
 
-	//Оператор return.
+	//Return statement.
 	public interface IReturnNode : IStatementNode
 	{
 		IExpressionNode return_value
@@ -1510,8 +1510,8 @@ namespace PascalABCCompiler.SemanticTree
 		}
 	}
 
-    //ssyy добавил
-    //Оператор return из .ctor.
+    //ssyy added
+    //Return statement from .ctor.
     /*public interface ICtorReturnNode : IStatementNode
     {
     }*/
@@ -1519,130 +1519,130 @@ namespace PascalABCCompiler.SemanticTree
 
     public interface IReferenceNode : IAddressedExpressionNode
     {
-        //Определение локальной переменной.
+        //The local variable definition.
         IVAriableDefinitionNode Variable
         {
             get;
         }
     }
 
-    //Интерфейс, представляющий обращение к локальной переменной в теле программы.
+    //Interface representing a reference to a local variable in the program body.
     public interface ILocalVariableReferenceNode : IReferenceNode
 	{
-		//Определение локальной переменной.
+		//The local variable definition.
 		ILocalVariableNode variable
 		{
 			get;
 		}
 
-		//Разность статических глубин, между определением и вхождением.
+		//The difference in static nesting depth between the definition and the reference.
 		int static_depth
 		{
 			get;
 		}
 	}
 
-    //Интерфейс, представляющий обращение к локальной переменной в блоке.
+    //Interface representing a reference to a local variable in a block.
     public interface ILocalBlockVariableReferenceNode : IReferenceNode
     {
-        //Определение локальной переменной.
+        //The local variable definition.
         ILocalBlockVariableNode Variable
         {
             get;
         }
     }
     
-    //Интерфейс, представляющий обращение к переменной, определенной непосредственно в namespace.
+    //Interface representing a reference to a variable defined directly in a namespace.
     public interface INamespaceVariableReferenceNode : IReferenceNode
 	{
-		//Переменная.
+		//The variable.
 		ICommonNamespaceVariableNode variable
 		{
 			get;
 		}
 	}
 
-	//Интерфейс, представляющий обращение к полю класса.
+	//Interface representing a reference to a class field.
     public interface ICommonClassFieldReferenceNode : IReferenceNode
 	{
-		//Поле класса.
+		//The class field.
 		ICommonClassFieldNode field
 		{
 			get;
 		}
 
-		//Объект класса.
+		//The class object.
 		IExpressionNode obj
 		{
 			get;
 		}
 	}
 
-	//Интерфейс, представляющий обращение к статическому полю класса.
+	//Interface representing a reference to a static class field.
     public interface IStaticCommonClassFieldReferenceNode : IReferenceNode
 	{
-		//Статическое поле класса.
+		//The static class field.
 		ICommonClassFieldNode static_field
 		{
 			get;
 		}
 
-		//Класс, к статическому методу которого мы обращаемся.
+		//The class whose static field we are accessing.
 		ICommonTypeNode class_type
 		{
 			get;
 		}
 	}
 
-	//Обращение к полю откомпилированного класса.
+	//Reference to a field of a compiled class.
     public interface ICompiledFieldReferenceNode : IReferenceNode
 	{
-		//Поле класса.
+		//The class field.
 		ICompiledClassFieldNode field
 		{
 			get;
 		}
 
-		//Объект класса.
+		//The class object.
 		IExpressionNode obj
 		{
 			get;
 		}
 	}
 
-	//Интерфейс, представляющий обращение к статическому полю откомпилированного класса.
+	//Interface representing a reference to a static field of a compiled class.
     public interface IStaticCompiledFieldReferenceNode : IReferenceNode
 	{
-		//Поле класса.
+		//The class field.
 		ICompiledClassFieldNode static_field
 		{
 			get;
 		}
 
-		//Класс, к статическому полю которого мы обращаемся.
+		//The class whose static field we are accessing.
 		ICompiledTypeNode class_type
 		{
 			get;
 		}
 	}
 
-	//Обращение к параметру метода.
+	//Reference to a method parameter.
     public interface ICommonParameterReferenceNode : IReferenceNode
 	{
-		//Параметр метода, к которому мы обращаемся.
+		//The method parameter being referenced.
 		ICommonParameterNode parameter
 		{
 			get;
 		}
 
-		//Разность статических глубин, между обращением к параметру и методом в котором он объявлен.
+		//The difference in static nesting depth between the parameter reference and the method in which it is declared.
 		int static_depth
 		{
 			get;
 		}
 	}
 
-	//Базовый узел для представления констант в теле программы (не именованных констант, а чисел, строк и т.д.).
+	//Base node for representing constants in the program body (not named constants, but numbers, strings, etc.).
 	public interface IConstantNode : IExpressionNode
 	{
         object value
@@ -1651,140 +1651,140 @@ namespace PascalABCCompiler.SemanticTree
         }
 	}
 
-	//Интерфейс для представления булевских констант.
+	//Interface for representing boolean constants.
 	public interface IBoolConstantNode : IConstantNode
 	{
-		//Значение константы.
+		//Value of the constant.
 		bool constant_value
 		{
 			get;
 		}
 	}
 
-    //Интерфейс для представления byte констант.
+    //Interface for representing byte constants.
     public interface IByteConstantNode : IConstantNode
     {
-        //Значение константы.
+        //Value of the constant.
         byte constant_value
         {
             get;
         }
     }
 
-    //Интерфейс для представления signed byte констант.
+    //Interface for representing signed byte constants.
     public interface ISByteConstantNode : IConstantNode
     {
-        //Значение константы.
+        //Value of the constant.
         sbyte constant_value
         {
             get;
         }
     }
 
-    //Интерфейс для представления signed short констант.
+    //Interface for representing signed short constants.
     public interface IShortConstantNode : IConstantNode
     {
-        //Значение константы.
+        //Value of the constant.
         short constant_value
         {
             get;
         }
     }
 
-    //Интерфейс для представления unsigned short констант.
+    //Interface for representing unsigned short constants.
     public interface IUShortConstantNode : IConstantNode
     {
-        //Значение константы.
+        //Value of the constant.
         ushort constant_value
         {
             get;
         }
     }
 
-    //Интерфейс для представления int констант.
+    //Interface for representing int constants.
     public interface IIntConstantNode : IConstantNode
     {
-        //Значение константы.
+        //Value of the constant.
         int constant_value
         {
             get;
         }
     }
 
-    //Интерфейс для представления BigInteger констант.
+    //Interface for representing BigInteger constants.
     public interface IBigIntConstantNode : IConstantNode
     {
-        //Значение константы.
+        //Value of the constant.
         System.Numerics.BigInteger constant_value
         {
             get;
         }
     }
 
-    //Интерфейс для представления unsigned int констант.
+    //Interface for representing unsigned int constants.
     public interface IUIntConstantNode : IConstantNode
     {
-        //Значение константы.
+        //Value of the constant.
         uint constant_value
         {
             get;
         }
     }
 
-    //Интерфейс для представления long констант.
+    //Interface for representing long constants.
     public interface ILongConstantNode : IConstantNode
     {
-        //Значение константы.
+        //Value of the constant.
         long constant_value
         {
             get;
         }
     }
 
-    //Интерфейс для представления unsigned long констант.
+    //Interface for representing unsigned long constants.
     public interface IULongConstantNode : IConstantNode
     {
-        //Значение константы.
+        //Value of the constant.
         ulong constant_value
         {
             get;
         }
     }
 
-    //Интерфейс для представления float констант.
+    //Interface for representing float constants.
     public interface IFloatConstantNode : IConstantNode
     {
-        //Значение константы.
+        //Value of the constant.
         float constant_value
         {
             get;
         }
     }
 
-	//Интерфейс для представления double констант.
+	//Interface for representing double constants.
 	public interface IDoubleConstantNode : IConstantNode
 	{
-		//Значение константы.
+		//Value of the constant.
 		double constant_value
 		{
 			get;
 		}
 	}
 
-	//Интерфейс для представления char констант (этот класс для 2-байтных char - widechar в delphi).
+	//Interface for representing char constants (this class is for 2-byte char - widechar in Delphi).
 	public interface ICharConstantNode : IConstantNode
 	{
-		//Значение константы.
+		//Value of the constant.
 		char constant_value
 		{
 			get;
 		}
 	}
 
-	//Интерфейс для представления string-констант.
+	//Interface for representing string constants.
 	public interface IStringConstantNode : IConstantNode
 	{
-		//Значение константы.
+		//Value of the constant.
 		string constant_value
 		{
 			get;
@@ -1917,32 +1917,32 @@ namespace PascalABCCompiler.SemanticTree
 
     }*/
 
-	/*//Узел для представления оператора присваивания.
+	/*//Node for representing an assignment statement.
 	public interface IAssignNode : IExpressionNode
 	{
-		//Чему присваиванием.
+		//The assignment target.
 		IAddressedExpressionNode to
 		{
 			get;
 		}
 
-		//Что присваиваем.
+		//The value being assigned.
 		IExpressionNode from
 		{
 			get;
 		}
 	}*/
 
-	//Базовй интерфейс для формальных параметров функций, локальных переменных, глобальных переменных программы и модуля и полей класса. Нигде не создается.
+	//Base interface for formal function parameters, local variables, global program/module variables, and class fields. Never instantiated.
 	public interface IVAriableDefinitionNode : IDefinitionNode
 	{
-		//Имя переменной.
+		//Variable name.
 		string name
 		{
 			get;
 		}
 
-		//Тип переменной.
+		//Variable type.
 		ITypeNode type
 		{
 			get;
@@ -1953,24 +1953,24 @@ namespace PascalABCCompiler.SemanticTree
             get;
         }
 
-		//Раположение переменной.
+		//Location of the variable.
 		node_location_kind node_location_kind
 		{
 			get;
 		}
 	}
 
-	//Интерфейс для описания локальных переменных.
+	//Interface for describing local variables.
 	public interface ILocalVariableNode : IVAriableDefinitionNode, IFunctionMemberNode, ILocated
 	{
-		//Используется, ли переменная во вложенных функчиях. Исрользуется для оптимизации.
+		//Whether the variable is used in nested functions. Used for optimization.
 		bool is_used_as_unlocal
 		{
 			get;
 		}
 	}
     
-    //Интерфейс для описания локальных переменных.
+    //Interface for describing local block variables.
     public interface ILocalBlockVariableNode : IVAriableDefinitionNode, ILocated
     {
         IStatementsListNode Block
@@ -1979,19 +1979,19 @@ namespace PascalABCCompiler.SemanticTree
         }
     }
 
-	//Интерфейс, представляющий глобальную переменную, описанную в модуле или программе.
+	//Interface representing a global variable described in a module or program.
 	public interface ICommonNamespaceVariableNode : IVAriableDefinitionNode, INamespaceMemberNode, ILocated
 	{
 		
 	}
 
-	//Интерфейс для описания полей класса.
+	//Interface for describing class fields.
 	public interface ICommonClassFieldNode: IVAriableDefinitionNode, ICommonClassMemberNode, ILocated
 	{
 
 	}
 
-	//Переменная, определенная в откомпилированном классе.
+	//A variable defined in a compiled class.
 	public interface ICompiledClassFieldNode : IVAriableDefinitionNode, ICompiledClassMemberNode
 	{
 		System.Reflection.FieldInfo compiled_field
@@ -2000,16 +2000,16 @@ namespace PascalABCCompiler.SemanticTree
 		}
 	}
 
-	//Базовый интерфейс для интерфейсов, представляющих параметры базовых, обычных и откомпилированных функций.
+	//Base interface for interfaces representing parameters of basic, common, and compiled functions.
 	public interface IParameterNode : IVAriableDefinitionNode
 	{
-		//Тип параметра.
+		//Type of the parameter.
 		parameter_type parameter_type
 		{
 			get;
 		}
 
-		//Функция, в которой описан этот праметр.
+		//The function in which this parameter is described.
 		IFunctionNode function
 		{
 			get;
@@ -2031,61 +2031,61 @@ namespace PascalABCCompiler.SemanticTree
         }
 	}
 
-	//Интерфейс для представления параметров common функций.
+	//Interface for representing parameters of common functions.
 	public interface ICommonParameterNode : IParameterNode, ILocated
 	{
-		//Функция, в которой определен параметер.
+		//The function in which this parameter is defined.
 		ICommonFunctionNode common_function
 		{
 			get;
 		}
 
-		//Используется ли параметр во вложенных функциях.
+		//Whether the parameter is used in nested functions.
 		bool is_used_as_unlocal
 		{
 			get;
 		}
 	}
 
-	//Интерфейс, представляющий параметры базовых функций.
+	//Interface representing parameters of basic functions.
 	public interface IBasicParameterNode : IParameterNode
 	{
 		
 	}
 
-	//Интерфейс, представляющий параметры откомпилироанных функций.
+	//Interface representing parameters of compiled functions.
 	public interface ICompiledParameterNode : IParameterNode
 	{
-		//Функция, в которой определен параметер.
+		//The function in which this parameter is defined.
 		ICompiledMethodNode compiled_function
 		{
 			get;
 		}
 	}
 
-	//Интерфейс, описывающий определение константы.
+	//Interface describing a constant definition.
 	public interface IConstantDefinitionNode : IDefinitionNode
 	{
-		//Имя константы.
+		//Constant name.
 		string name
 		{
 			get;
 		}
 
-		//Тип константы.
+		//Constant type.
 		ITypeNode type
 		{
 			get;
 		}
 
-		//Значение константы.
+		//Constant value.
 		IConstantNode constant_value
 		{
 			get;
 		}
 	}
 
-    //Константа, определенная в классе.
+    //A constant defined in a class.
     public interface IClassConstantDefinitionNode : IConstantDefinitionNode, IClassMemberNode, ILocated
     {
 
@@ -2099,7 +2099,7 @@ namespace PascalABCCompiler.SemanticTree
         }
     }
 
-    //Константа, определенная в пространстве имен.
+    //A constant defined in a namespace.
     public interface INamespaceConstantDefinitionNode : IConstantDefinitionNode, ILocated
     {
         ICommonNamespaceNode comprehensive_namespace
@@ -2108,7 +2108,7 @@ namespace PascalABCCompiler.SemanticTree
         }
     }
 
-    //Константа, определенная в функции.
+    //A constant defined in a function.
     public interface ICommonFunctionConstantDefinitionNode : IConstantDefinitionNode, ILocated
     {
         ICommonFunctionNode comprehensive_function
@@ -2117,7 +2117,7 @@ namespace PascalABCCompiler.SemanticTree
         }
     }
 
-    //Константа, определенная в откомпилированном типе.
+    //A constant defined in a compiled type.
     public interface ICompiledConstantNode : IConstantDefinitionNode
     {
         ICompiledTypeNode comprehensive_type
@@ -2126,40 +2126,40 @@ namespace PascalABCCompiler.SemanticTree
         }
     }
 
-	//Узел, описывающий свойство класса. Никогда не создается.
+	//Node describing a class property. Never instantiated.
 	public interface IPropertyNode : IDefinitionNode
 	{
-		//Вид объекта (basic, common, compiled).
+		//Kind of object (basic, common, compiled).
 		node_kind node_kind
 		{
 			get;
 		}
 
-		//Имя свойства.
+		//Name of the property.
 		string name
 		{
 			get;
 		}
 
-		//Тип, который содержит это свойство.
+		//The type that contains this property.
 		ITypeNode comprehensive_type
 		{
 			get;
 		}
 
-		//Тип свойства.
+		//Type of the property.
 		ITypeNode property_type
 		{
 			get;
 		}
 
-		//Функция, которая возвращает значение свойства.
+		//The function that returns the property value.
 		IFunctionNode get_function
 		{
 			get;
 		}
 
-		//Функция, которая устанавливает значение свойства.
+		//The function that sets the property value.
 		IFunctionNode set_function
 		{
 			get;
@@ -2171,56 +2171,56 @@ namespace PascalABCCompiler.SemanticTree
 		}
 	}
 
-	//Определяемое пользователем свойство.
+	//A user-defined property.
 	public interface ICommonPropertyNode : IPropertyNode, ICommonClassMemberNode, ILocated
 	{
-		//Тип, который содержит это свойство.
+		//The type that contains this property.
 		/*ICommonTypeNode common_comprehensive_type
 		{
 			get;
 		}*/
 
-		//Функция, которая возвращает значение свойства.
+		//The function that returns the property value.
 		/*ICommonClassMemberNode get_common_function
 		{
 			get;
 		}
 
-		//Функция, которая устанавливает значение свойства.
+		//The function that sets the property value.
 		ICommonClassMemberNode set_common_function
 		{
 			get;
 		}*/
 	}
 
-	//Базовое свойство. Пока нигде не нужно, но для реализации машинного кода может очень пригодится.
+	//Basic property. Not needed anywhere yet, but may be very useful for native code generation.
 	public interface IBasicPropertyNode : IPropertyNode
 	{
 
 	}
 
-	//Свойство в откомпилированном типе.
+	//Property in a compiled type.
 	public interface ICompiledPropertyNode : IPropertyNode, ICompiledClassMemberNode
 	{
-		//Свойство в сборке.
+		//The property in the assembly.
 		System.Reflection.PropertyInfo property_info
 		{
 			get;
 		}
 
-		//Тип, который содержит это свойство.
+		//The type that contains this property.
 		ICompiledTypeNode compiled_comprehensive_type
 		{
 			get;
 		}
 
-		//Функция, которая возвращает значение свойства.
+		//The function that returns the property value.
 		ICompiledMethodNode compiled_get_method
 		{
 			get;
 		}
 
-		//Функция, которая устанавливает значение свойства.
+		//The function that sets the property value.
 		ICompiledMethodNode compiled_set_method
 		{
 			get;
@@ -2294,13 +2294,13 @@ namespace PascalABCCompiler.SemanticTree
 
 	public interface ILabelNode : IDefinitionNode, ILocated
     {
-        //Имя метки. Для языков не чувствительных к регистрам хранит имя в том виде, в каком тип объявлен.
+        //Label name. For case-insensitive languages, stores the name as it was declared.
         string name
         {
             get;
         }
 
-        //встречена ли метка в коде
+        //whether the label was encountered in the code
         /*bool is_defined
         {
             get;
@@ -2311,13 +2311,13 @@ namespace PascalABCCompiler.SemanticTree
 
     public interface ILabeledStatementNode : IStatementNode, ILocated
     {
-        //Метка, которой помечен statement
+        //The label that marks this statement
         ILabelNode label
         {
             get;
         }
 
-        //Сама инструкция
+        //The statement itself
         IStatementNode statement
         {
             get;
@@ -2327,7 +2327,7 @@ namespace PascalABCCompiler.SemanticTree
 
     public interface IGotoStatementNode : IStatementNode, ILocated
     {
-        //Метка, на которую происходит переход
+        //The label to which the goto jumps
         ILabelNode label
         {
             get;
@@ -2559,19 +2559,19 @@ namespace PascalABCCompiler.SemanticTree
     }
     public interface ILambdaFunctionNode : IExpressionNode
     {
-        //Вид узла - базовый (basic), обычный (common) или экспортируемый (compiled).
+        //Kind of node - basic, common, or compiled (exported).
         node_kind node_kind
         {
             get;
         }
 
-        //Список формальных параметров функции.
+        //List of formal parameters of the function.
         IParameterNode[] parameters
         {
             get;
         }
 
-        //Тип возвращаемого значения функции.
+        //Return value type of the function.
         ITypeNode return_value_type
         {
             get;
@@ -2587,19 +2587,19 @@ namespace PascalABCCompiler.SemanticTree
             get;
         }
 
-        //Расположение функции - в функции, в классе, в пространстве имен.
+        //Location of the function - inside a function, a class, or a namespace.
         node_location_kind node_location_kind
         {
             get;
         }
 
-        //Является ли generic-функцией
+        //Whether this is a generic function
         bool is_generic_function
         {
             get;
         }
 
-        //Число типов-параметров generic-функции. 0 для не-generic.
+        //Number of type parameters for a generic function. 0 for non-generic.
         int generic_parameters_count
         {
             get;
@@ -2607,15 +2607,15 @@ namespace PascalABCCompiler.SemanticTree
     }
     public interface ILambdaFunctionCallNode : IExpressionNode
     {
-        //Список фактических параметров. Количество и типы формальных и фактических параметров сверяется
-        //на этапе построения семантического дерева. При необходимости при построении семантического дерева
-        //вставляются узлы преобрызования типов.
+        //List of actual parameters. The count and types of formal and actual parameters are verified
+        //during semantic tree construction. Type conversion nodes are inserted into the semantic tree
+        //as needed during construction.
         IExpressionNode[] parameters
         {
             get;
         }
 
-        //Вызываемый метод.
+        //The method being called.
         ILambdaFunctionNode lambda
         {
             get;

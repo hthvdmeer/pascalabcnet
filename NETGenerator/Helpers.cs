@@ -95,22 +95,22 @@ namespace PascalABCCompiler.NETGenerator {
 	public class TypeInfo : NodeInfo
     {
 		private Type _tp;
-		private bool _is_arr=false;//флаг массив ли это
+		private bool _is_arr=false;//flag indicating whether this is an array
 		public bool is_set=false;
 		public bool is_typed_file=false;
 		public bool is_text_file=false;
 		public int arr_len;
-		public ConstructorInfo def_cnstr;//конструктор по умолчанию типа (если он есть)
-		public FieldInfo arr_fld;//ссылка на поле массива в оболочке над массивом
-		public MethodInfo clone_meth;//метод копирования в массиве
-		public MethodInfo init_meth;//метод инициализации
-        public MethodInfo assign_meth;//метод присваивания значений размерных типов
+		public ConstructorInfo def_cnstr;//default constructor of the type (if one exists)
+		public FieldInfo arr_fld;//reference to the array field in the array wrapper
+		public MethodInfo clone_meth;//array copy method
+		public MethodInfo init_meth;//initialization method
+        public MethodInfo assign_meth;//method for assigning values of value types
         public ConstructorBuilder static_cnstr;
         public MethodBuilder fix_meth;
-		//временно для событий
+		//temporary, for events
 		public MethodBuilder handl_meth;
-		public bool has_events=false;//есть ли в типе события
-		//public Hashtable fields=new Hashtable();//временно
+		public bool has_events=false;//whether the type has events
+		//public Hashtable fields=new Hashtable();//temporary
         public MethodInfo enumerator_meth;
 		
 		public TypeInfo() {}
@@ -196,7 +196,7 @@ namespace PascalABCCompiler.NETGenerator {
     public class GenericFldInfo : FldInfo
     {
         private Type _field_type;
-        public FieldInfo prev_fi; // передаю чтобы на третьем этапе в NegGenerator.cs (примерно 1586) можно было сконструировать правильный тип. Костыль для #1632
+        public FieldInfo prev_fi; // passed so that at the third stage in NegGenerator.cs (around line 1586) the correct type can be constructed. Workaround for #1632
 
         public override Type field_type
         {
@@ -253,15 +253,15 @@ namespace PascalABCCompiler.NETGenerator {
 	
 	public class MethInfo : NodeInfo {
 		private MethodInfo _mi;
-		//private LocalBuilder _ret_val;//переменная для возвр. значения //(ssyy) Нет пользы
-		private LocalBuilder _frame;//перем, хранящая запись активации
-		private MethInfo _up_meth;//ссылка на верхний метод
-		private Frame _disp;//запись активации
-		private bool _nested=false;//является ли вложенной или содержащей вложенные
-		private int _num_scope;//номер области видимости
+		//private LocalBuilder _ret_val;//variable for the return value //(ssyy) No use
+		private LocalBuilder _frame;//variable holding the activation record
+		private MethInfo _up_meth;//reference to the enclosing method
+		private Frame _disp;//activation record
+		private bool _nested=false;//whether this is nested or contains nested methods
+		private int _num_scope;//scope index
 		private ConstructorInfo _cnstr;
-		private bool _stand=false;//для станд. процедур, у которого нет тела в семант. дереве ("New","Dispose")
-        private bool _is_in_class = false;//является ли он процедурой, влож. в метод
+		private bool _stand=false;//for standard procedures that have no body in the semantic tree ("New", "Dispose")
+        private bool _is_in_class = false;//whether this is a procedure nested inside a method
         private bool _is_ptr_ret_type = false;
 
 		public MethInfo() {}
@@ -370,7 +370,7 @@ namespace PascalABCCompiler.NETGenerator {
 			}
 		}
 		
-        //(ssyy) Нет пользы
+        //(ssyy) No use
 		/*public LocalBuilder ret_val {
 			get {
 				return _ret_val;
@@ -384,16 +384,16 @@ namespace PascalABCCompiler.NETGenerator {
 	
 	public enum VarKind 
 	{
-		vkLocal, //локальная 
-		vkNonLocal, //нелокальная(содержится в процедуре) 
-		vkGlobal //глобальная переменная (основная программа)
+		vkLocal, //local
+		vkNonLocal, //non-local (contained in a procedure)
+		vkGlobal //global variable (main program)
 	}
 	
 	public class VarInfo : NodeInfo {
-		private LocalBuilder _lb;//билдер для переменной
-		private FieldBuilder _fb;//а вдруг переменная нелокальная
-		private VarKind _kind;//тип переменной
-		private MethInfo _meth;//метод, в котором определена переменная
+		private LocalBuilder _lb;//builder for the variable
+		private FieldBuilder _fb;//in case the variable is non-local
+		private VarKind _kind;//variable kind
+		private MethInfo _meth;//method in which the variable is defined
 		
 		public VarInfo() {}
 		
@@ -446,10 +446,10 @@ namespace PascalABCCompiler.NETGenerator {
 	}
 	
 	public class ParamInfo : NodeInfo {
-		private ParameterBuilder _pb;//билдер для параметра
-		private FieldBuilder _fb;//вдруг параметр нелокальный
+		private ParameterBuilder _pb;//builder for the parameter
+		private FieldBuilder _fb;//in case the parameter is non-local
 		private ParamKind _kind = ParamKind.pkNone;
-		private MethInfo _meth;//метод, в котор. описан параметр
+		private MethInfo _meth;//method in which the parameter is defined
 		
 		public ParamInfo() {}
 		
@@ -504,11 +504,11 @@ namespace PascalABCCompiler.NETGenerator {
 		}
 	}
 	
-	//Структура для записи активации процедуры
+	//Structure for the procedure activation record
 	public class Frame {
-		public TypeBuilder tb; //класс - запись активации
-		public FieldBuilder parent; //поле-ссылка на род. запись активации
-		public ConstructorBuilder cb; //конструктор записи активации
+		public TypeBuilder tb; //class representing the activation record
+		public FieldBuilder parent; //field referencing the parent activation record
+		public ConstructorBuilder cb; //constructor of the activation record
 		public MethodBuilder mb;
 		
 		public Frame() {}
@@ -552,7 +552,7 @@ namespace PascalABCCompiler.NETGenerator {
 			return ci;
 		}
 		
-        //добавление локальной переменной
+        //add a local variable
 		public VarInfo AddVariable(IVAriableDefinitionNode var, LocalBuilder lb)
 		{
 			VarInfo vi = new VarInfo(lb);
@@ -573,13 +573,13 @@ namespace PascalABCCompiler.NETGenerator {
         }
         //\ssyy
 		
-        //получение локальной переменной
+        //get a local variable
 		public VarInfo GetVariable(IVAriableDefinitionNode var)
 		{
 			return (VarInfo)defs[var];
 		}
 		
-        //добавление глоб. переменной
+        //add a global variable
 		public VarInfo AddGlobalVariable(IVAriableDefinitionNode var, FieldBuilder fb)
 		{
 			VarInfo vi = new VarInfo();
@@ -601,7 +601,7 @@ namespace PascalABCCompiler.NETGenerator {
 			return (EvntInfo)defs[ev];
 		}
 		
-        //добавление нелок. переменной
+        //add a non-local variable
 		public VarInfo AddNonLocalVariable(IVAriableDefinitionNode var, FieldBuilder fb)
 		{
 			VarInfo vi = new VarInfo();
@@ -611,7 +611,7 @@ namespace PascalABCCompiler.NETGenerator {
 			return vi;
 		}
 		
-        //добавление функции (метода)
+        //add a function (method)
 		public MethInfo AddMethod(IFunctionNode func, MethodInfo mi)
 		{
 			MethInfo m = new MethInfo(mi);
@@ -619,7 +619,7 @@ namespace PascalABCCompiler.NETGenerator {
 			return m;
 		}
 		
-        //добавление функции, вложенной в функцию
+        //add a function nested inside another function
 		public MethInfo AddMethod(IFunctionNode func, MethodInfo mi, MethInfo up)
 		{
 			MethInfo m = new MethInfo(mi);
@@ -628,13 +628,13 @@ namespace PascalABCCompiler.NETGenerator {
 			return m;
 		}
 		
-        //получение метода
+        //get a method
 		public MethInfo GetMethod(IFunctionNode func)
 		{
 			return (MethInfo)defs[func];
 		}
 		
-        //добавление конструктора
+        //add a constructor
 		public MethInfo AddConstructor(IFunctionNode func, ConstructorInfo ci)
 		{
 			//ConstrInfo m = new ConstrInfo(ci);
@@ -656,7 +656,7 @@ namespace PascalABCCompiler.NETGenerator {
 			return (PropInfo)defs[prop];
 		}
 		
-        //получение конструктора
+        //get a constructor
 		public MethInfo GetConstructor(IFunctionNode func)
 		{
 			MethInfo mi = (MethInfo)defs[func];
@@ -678,7 +678,7 @@ namespace PascalABCCompiler.NETGenerator {
             return null;
         }
 
-        //добавление параметра
+        //add a parameter
 		public ParamInfo AddParameter(IParameterNode p, ParameterBuilder pb)
 		{
 			ParamInfo pi = new ParamInfo(pb);
@@ -686,7 +686,7 @@ namespace PascalABCCompiler.NETGenerator {
 			return pi;
 		}
 		
-        //добавление нелок. параметра
+        //add a non-local parameter
 		public ParamInfo AddGlobalParameter(IParameterNode p, FieldBuilder fb)
 		{
 			ParamInfo pi = new ParamInfo();
@@ -696,13 +696,13 @@ namespace PascalABCCompiler.NETGenerator {
 			return pi;
 		}
 		
-        //получение параметра
+        //get a parameter
 		public ParamInfo GetParameter(IParameterNode p)
 		{
 			return (ParamInfo)defs[p];
 		}
 		
-        //добавление поля
+        //add a field
 		public FldInfo AddField(ICommonClassFieldNode f, FieldInfo fb)
 		{
 			FldInfo fi = new FldInfo(fb);
@@ -718,7 +718,7 @@ namespace PascalABCCompiler.NETGenerator {
 		
         public FldInfo AddGenericField(ICommonClassFieldNode f, FieldInfo fb, Type field_type, FieldInfo prev_fi)
         {
-            FldInfo fi = new GenericFldInfo(fb, field_type, prev_fi); // prev_fi - чтобы сконструировать на последнем этапе fi 
+            FldInfo fi = new GenericFldInfo(fb, field_type, prev_fi); // prev_fi - to construct the correct fi at the final stage
 #if DEBUG
             /*if (f.name == "XYZW")
             {
@@ -729,7 +729,7 @@ namespace PascalABCCompiler.NETGenerator {
             return fi;
         }
 
-        //получение поля
+        //get a field
 		public FldInfo GetField(ICommonClassFieldNode f)
 		{
             var r = (FldInfo)defs[f];
@@ -752,7 +752,7 @@ namespace PascalABCCompiler.NETGenerator {
             return r;
 		}
 		
-        //добавление типа
+        //add a type
 		public TypeInfo AddType(ITypeNode type, TypeBuilder tb)
 		{
 			TypeInfo ti = new TypeInfo(tb);
@@ -840,8 +840,8 @@ namespace PascalABCCompiler.NETGenerator {
         }
 
         /// <summary>
-        /// До вызова <c>.CreateType()</c> позволяет определить, был ли тип объявлен в коде, а не в готовой сборке.
-        /// Generic типы инстанцированные Pascal типами также считаются Pascal типами (пример: <c>IEnumerable&lt;PascalType&gt;</c>)
+        /// Before calling <c>.CreateType()</c>, allows determining whether the type was declared in code rather than in a pre-built assembly.
+        /// Generic types instantiated with Pascal types are also considered Pascal types (example: <c>IEnumerable&lt;PascalType&gt;</c>)
         /// </summary>
         public bool IsPascalType(Type t)
         {
@@ -895,7 +895,7 @@ namespace PascalABCCompiler.NETGenerator {
             return result;
         }
 
-        //получение типа
+        //get a type
         public TypeInfo GetTypeReference(ITypeNode type)
 		{
 			TypeInfo ti = defs[type] as TypeInfo;
@@ -951,7 +951,7 @@ namespace PascalABCCompiler.NETGenerator {
 				defs[type] = ti;
 				return ti;
 			}
-            //(ssyy) Ускорил, вставив switch
+            //(ssyy) Sped up by inserting a switch
             switch (type.type_special_kind)
             {
                 case type_special_kind.typed_file:
@@ -1011,7 +1011,7 @@ namespace PascalABCCompiler.NETGenerator {
 			if (type is IRefTypeNode) {
 				TypeInfo ref_ti = GetTypeReference(((IRefTypeNode)type).pointed_type);
                 if (ref_ti == null) return null;
-                //(ssyy) Лучше использовать MakePointerType
+                //(ssyy) Better to use MakePointerType
                 ti = new TypeInfo(ref_ti.tp.MakePointerType());
                 defs[type] = ti;
                 return ti;
@@ -1036,7 +1036,7 @@ namespace PascalABCCompiler.NETGenerator {
 			return null;
 		}
 		
-        //получение метода создания массива
+        //get the array creation method
 		public MethodInfo GetArrayInstance()
 		{
 			if (arr_mi != null) return arr_mi;
@@ -1044,8 +1044,8 @@ namespace PascalABCCompiler.NETGenerator {
 			return arr_mi;
 		}
 
-        //добавление фиктивного метода (если метод содерж. вложенные, создается заглушка)
-        //т. е. метод не добавл. в таблицу
+        //add a stub method (if a method contains nested methods, a stub is created)
+        //i.e., the method is not added to the table
         public MethInfo AddFictiveMethod(IFunctionNode func, MethodBuilder mi)
         {
             MethInfo m = new MethInfo(mi);

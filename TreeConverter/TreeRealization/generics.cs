@@ -1,7 +1,7 @@
 ﻿// Copyright (c) Ivan Bondarev, Stanislav Mikhalkovich (for details please see \doc\copyright.txt)
 // This code is distributed under the GNU LGPL (for details please see \doc\license.txt)
-//Здесь описана реализация generic-типов
-//Файлом владеет ssyy.
+//This file describes the implementation of generic types.
+//File owned by ssyy.
 
 using System;
 using System.Collections;
@@ -13,7 +13,7 @@ using PascalABCCompiler.TreeConverter;
 
 namespace PascalABCCompiler.TreeRealization
 {
-    //Вспомогательный класс для реализации generic-типов
+    //Helper class for the implementation of generic types
     public class generic_type_instance_info
     {
         public List<type_node> param_types;
@@ -164,9 +164,9 @@ namespace PascalABCCompiler.TreeRealization
                 if (gpe.base_class != null && gpe.base_class != SystemLibrary.SystemLibrary.object_type)
                 {
                     type_node base_type = generic_convertions.determine_type(gpe.base_class, tparams, method_param_types);
-                    // Если tn не соврадает со своим базовым типом и
-                    // tn не наследуется от base_type и
-                    // tn - не generic параметр - закомментировал
+                    // If tn does not coincide with its base type and
+                    // tn does not inherit from base_type and
+                    // tn is not a generic parameter - commented out
                     if (base_type != tn && !type_table.is_derived(base_type, tn) /*&& !tn.is_generic_parameter*/)
                     {
                         return new SimpleSemanticError(null, "PARAMETER_{0}_MUST_BE_DERIVED_FROM_{1}", tn.PrintableName, base_type.PrintableName);
@@ -221,11 +221,11 @@ namespace PascalABCCompiler.TreeRealization
         }
     }
 
-    //Вспомогательный класс для создания псевдо-инстанций generic-типов.
+    //Helper class for creating pseudo-instantiations of generic types.
     //TODO: sdelat singletonom. staticheskie klassy eto gadost
     public static class generic_convertions
     {
-        //Список, хранящий все псевдо-инстанции generic-типов, нужен для NetGenerator.
+        //List holding all pseudo-instantiations of generic types, needed for NetGenerator.
         public static List<SemanticTree.IGenericTypeInstance> all_type_instances =
             new List<SemanticTree.IGenericTypeInstance>();
 
@@ -283,7 +283,7 @@ namespace PascalABCCompiler.TreeRealization
                 }
                 if (equals)
                 {
-                    //Такая инстанция уже есть
+                    //Such an instance already exists
                     return gii.pseudo_instance;
                 }
             }
@@ -317,7 +317,7 @@ namespace PascalABCCompiler.TreeRealization
                 }
                 if (equals)
                 {
-                    //Такая инстанция уже есть
+                    //Such an instance already exists
                     return gii.pseudo_instance;
                 }
             }
@@ -332,13 +332,13 @@ namespace PascalABCCompiler.TreeRealization
             {
                 if (orig_pn.comprehensive_type == original)
                 {
-                    //Свойство по умолчанию описано в оригинальном коде generic-a;
-                    //конвертируем его
+                    //The default property is defined in the original generic code;
+                    //convert it
                     instance.default_property = instance.ConvertMember(orig_pn) as common_property_node;
                 }
                 else
                 {
-                    //Свойство по умолчанию описано в каком-то предке оригинального generic-a
+                    //The default property is defined in some ancestor of the original generic
                     if (orig_pn.comprehensive_type.is_generic_type_definition)
                     {
                         instance.default_property = instance.find_instance_type_from(orig_pn.comprehensive_type).default_property;
@@ -359,7 +359,7 @@ namespace PascalABCCompiler.TreeRealization
             instance.IsDelegate = original.IsDelegate;
             instance.type_special_kind = original.type_special_kind;
 
-            //Определяем базовый тип
+            //Determine the base type
             type_node btype = determine_type(
                 original.base_type, param_types, false);
             if (btype == null)
@@ -368,7 +368,7 @@ namespace PascalABCCompiler.TreeRealization
             
             //instance._scope = new SymbolTable.GenericTypeInstanceScope(instance, instance.original_generic.Scope, btype.Scope);
 
-            // Создаются лениво
+            // Created lazily
             /**
             foreach (type_node interf in original.ImplementingInterfaces)
             {
@@ -380,7 +380,7 @@ namespace PascalABCCompiler.TreeRealization
 
             SystemLibrary.SystemLibrary.init_reference_type(instance);
             instance.conform_basic_functions();
-            //(ssyy) Нужно, чтобы добавились конструкторы
+            //(ssyy) Needed so that constructors get added
             //ctnode.find_in_type(StringConstants.default_constructor_name);
             instance.instance_params = param_types;
 
@@ -389,13 +389,13 @@ namespace PascalABCCompiler.TreeRealization
             {
                 if (orig_pn.comprehensive_type == original)
                 {
-                    //Свойство по умолчанию описано в оригинальном коде generic-a;
-                    //конвертируем его
+                    //The default property is defined in the original generic code;
+                    //convert it
                     instance.default_property = instance.ConvertMember(orig_pn) as common_property_node;
                 }
                 else
                 {
-                    //Свойство по умолчанию описано в каком-то предке оригинального generic-a
+                    //The default property is defined in some ancestor of the original generic
                     if (orig_pn.comprehensive_type.is_generic_type_definition)
                     {
                         instance.default_property = instance.find_instance_type_from(orig_pn.comprehensive_type).default_property;
@@ -416,9 +416,9 @@ namespace PascalABCCompiler.TreeRealization
                 }
             }
 
-            if (shouldAddToAllTypeInstances) //lroman// Если зашли сюда при выведении типов параметров лямбды, то тип инстанцироваться может с типом lambda_any_type_node. Поэтому, если выводим типы. То данную инстанцию не добавляем
+            if (shouldAddToAllTypeInstances) //lroman// If we arrived here while inferring lambda parameter types, the type may be instantiated with lambda_any_type_node. Therefore, if we are inferring types, we do not add this instance
             {
-                if (instance.instance_params[0] is ienumerable_auto_type) // SSM 10.07.16 (yields) в эту таблицу не включаются типы IEnumerable<ienumerable_auto_type>, т.к. потом они всё равно автовыводятся
+                if (instance.instance_params[0] is ienumerable_auto_type) // SSM 10.07.16 (yields) IEnumerable<ienumerable_auto_type> types are not included in this table because they will be auto-inferred later anyway
                 {
                     //instance = instance;
                 }
@@ -449,16 +449,16 @@ namespace PascalABCCompiler.TreeRealization
             all_function_instances.Clear();
         }
 
-        //Определяет, как должен выглядеть тип в семантическом дереве.
-        //Возвращает этот тип.
+        //Determines how the type should look in the semantic tree.
+        //Returns that type.
         public static type_node determine_type(Type t, List<type_node> param_types, bool method_param_types, List<type_node> generic_param_types = null)
         {
             if (t == null) return null;
             if (t.IsGenericParameter)
             {
-                //Если мы определяем тип-параметры метода, нет необходимости рассматривать
-                //тип-параметры типа, и наоборот. Это для поддержки generic-методов в
-                //generic-типе.
+                //If we are resolving method type parameters, there is no need to consider
+                //the type's type parameters, and vice versa. This is for supporting generic methods in
+                //a generic type.
                 if (method_param_types == (t.DeclaringMethod != null))
                 {
                     try
@@ -477,7 +477,7 @@ namespace PascalABCCompiler.TreeRealization
             }
             if (t.IsGenericType)
             {
-                //Формируем список типов-параметров
+                //Build the list of type parameters
                 Type[] args = t.GetGenericArguments();
                 List<type_node> semantic_args = new List<type_node>();
                 foreach (Type arg in args)
@@ -485,11 +485,11 @@ namespace PascalABCCompiler.TreeRealization
                     semantic_args.Add(determine_type(arg, param_types, method_param_types));
                 }
 
-                //Получаем описание generic-класса
+                //Get the generic class definition
                 Type def = t.GetGenericTypeDefinition();
                 compiled_type_node ct_def = compiled_type_node.get_type_node(def);
 
-                //Создаём псевдо-инстанцию
+                //Create the pseudo-instantiation
                 return ct_def.get_instance(semantic_args);
             }
 
